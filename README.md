@@ -30,7 +30,8 @@ probability and expected value.
 
 The repository includes a ready-to-run `ChadMathSpire.exe` in its top-level
 folder. Download the repository as a ZIP, extract the entire ZIP, and
-double-click `ChadMathSpire.exe`. Do not run it from inside the ZIP preview.
+double-click `PLAY_GAME.bat` or `ChadMathSpire.exe`. Do not run either file
+from inside the ZIP preview.
 No Python, Pygame, or PyInstaller installation is required.
 
 Keep the extracted folder together while playing. Windows may show a
@@ -64,7 +65,7 @@ venv\Scripts\activate
 pip install -r requirements-dev.txt
 ```
 
-Then either double-click **`build_exe.bat`**, or run:
+Then either double-click **`BUILD_EXE_FOR_DEVELOPERS.bat`**, or run:
 
 ```bash
 pyinstaller ChadMathSpire.spec
@@ -77,10 +78,11 @@ can hand to someone else.
 ### What to download
 
 For most people, use **Code > Download ZIP**, extract it, and double-click
-the root-level `ChadMathSpire.exe`. The repository ZIP contains the source,
-artwork, documentation, and this verified Windows build. The build script is
-only for developers who want to rebuild the executable; it is not needed to
-play the included build.
+`PLAY_GAME.bat` or the root-level `ChadMathSpire.exe`. The repository ZIP
+contains the source, artwork, documentation, and this verified Windows build.
+The `BUILD_FROM_SOURCE.bat` / `BUILD_EXE_FOR_DEVELOPERS.bat` scripts are only for developers
+who want to rebuild the executable; they are not needed to play the included
+build.
 
 ## Controls
 
@@ -124,7 +126,9 @@ _pygame_stub.py             A tiny in-process fake pygame, used only when
 assets/                    Fonts, icons, artwork, audio -- see
                             ASSETS_AND_CREDITS.md for what's licensed how
 ChadMathSpire.spec         PyInstaller build config
-build_exe.bat              One-click Windows .exe builder
+PLAY_GAME.bat               Player launcher (no install or build required)
+BUILD_EXE_FOR_DEVELOPERS.bat
+                            Developer-only Windows .exe builder
 requirements.txt           Runtime dependency (pygame)
 requirements-dev.txt       + pyinstaller / pytest, for building/testing
 ```
