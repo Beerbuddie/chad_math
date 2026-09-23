@@ -1,0 +1,27 @@
+# --- Python ---
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+
+# --- Virtual environments ---
+# This project's convention is `venv/` (see README's "Development setup").
+venv/
+.venv/
+env/
+
+# --- PyInstaller build output ---
+# The .spec file IS committed (it's a small text build config, not
+# generated junk) -- only its generated output directories are ignored.
+build/
+dist/
+
+# --- Runtime-generated files ---
+crash_log.txt
+
+# --- Editor / OS cruft ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

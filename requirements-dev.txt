@@ -1,0 +1,13 @@
+# Extra tools needed only for building the Windows .exe or running the
+# test suite -- not required just to play the game from source.
+#
+#     pip install -r requirements.txt -r requirements-dev.txt
+#
+-r requirements.txt
+pyinstaller>=6.0
+
+# The test suite (test_math_meme_spire.py) is written against the
+# standard-library `unittest` module and needs nothing extra to run:
+#     python -m unittest test_math_meme_spire -v
+# pytest works too, if you prefer its output/runner, but it is optional:
+pytest>=7.0
