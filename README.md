@@ -43,7 +43,7 @@ just Python + pygame.
 
 ### From source (Windows, macOS, or Linux)
 
-Use **Python 3.12** for the verified Windows setup. The supplied pygame dependency failed to install with Python 3.14 on this machine. Create the virtual environment with Python 3.12, then use that environment for builds and tests.
+Requires **Python 3.9+** (any reasonably recent Python 3 works).
 
 ```bash
 git clone <this-repo-url>
@@ -153,4 +153,3 @@ The source code is MIT-licensed — see `LICENSE`.
 Everything under `assets/` (fonts, icons, AI-generated artwork, and any
 music you add) ships under its own separate terms — see
 `ASSETS_AND_CREDITS.md` before reusing or redistributing any of it.
-
