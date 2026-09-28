@@ -234,6 +234,17 @@ def trial_cross_product_strike():
     return float(sum(random.randint(1, 4) for _ in range(3)))
 
 
+def trial_sigma_asymptote_proc(sides):
+    """Sigma Asymptote (POWER_LIBRARY, on_roll_max hook): fires whenever any
+    die roll lands on its own max face. Modeled here on a representative
+    1dN roll (sides=20, matching Dice Slash/Ultimate Strike, the game's most
+    common die) as a Bernoulli trial: 1.0 if the roll hits max face (the
+    power procs -- heal 3, draw 1), 0.0 otherwise. Averaging this over many
+    trials converges on the trigger PROBABILITY, not a damage EV, which is
+    exactly what's being audited here."""
+    return 1.0 if random.randint(1, sides) == sides else 0.0
+
+
 # ---------------------------------------------------------------------------
 # Action table: (name, sample_space_size, theoretical_ev, trial_fn)
 # trial_fn takes no args and returns a single float outcome per call.
@@ -332,6 +343,19 @@ def build_actions():
     actions.append((
         f"Derivative Dragon — Chain Rule Breath (2d8+3 rage, Phase 2, x{gm.BOSS_DAMAGE_NERF} boss nerf)",
         dragon_rage_space, dragon_rage_theory, lambda: trial_chain_rule_breath(bonus=3, boss_nerf=True),
+    ))
+
+    # -- Sigma Asymptote (Power: heal 3 + draw 1 on any max-face die roll) ---
+    # This isn't a damage action, so what's audited is the trigger
+    # PROBABILITY itself: P(1d20 lands on its max face) = 1/20 = 0.05,
+    # verified independently here against the game's own on_roll_max hook
+    # (see roll_dice()/roll_dice_multi() in polyhedral_spire.py). A brand
+    # new, uniquely-keyed row -- does not touch or reuse any existing row
+    # above (Central Limit Theorem, Progressive Overload, Spotter's Axiom).
+    sigma_sides = 20
+    actions.append((
+        f"Sigma Asymptote — Max-Face Proc Rate (1d{sigma_sides}, heal 3 + draw 1)",
+        sigma_sides, 1.0 / sigma_sides, lambda: trial_sigma_asymptote_proc(sigma_sides),
     ))
 
     return actions

@@ -111,6 +111,7 @@ MUSIC_FILES = {
 MUSIC_STATE_MAP = {
     "title": "title",
     "intro": "title",
+    "tutorial": "title",
     "character_select": "title",
     "map": "explore",
     "event": "explore",
@@ -220,7 +221,7 @@ CARD_ICON = {
     "Dice Slash": "card_wizard_dice", "Dice Burst": "card_wizard_wave", "Standard Deviation": "card_wizard_bellcurve",
     "Confidence Interval": "card_wizard_bellcurve", "Bayesian Update": "card_wizard_book", "Integral Strike": "card_warrior_sword",
     "Factorial Fury": "card_warrior_fist", "Central Limit Theorem": "card_wizard_orbit",
-    "Law of Large Numbers": "card_numbers",
+    "Law of Large Numbers": "card_numbers", "Sigma Asymptote": "card_wizard_constellation",
     "Ultimate Strike": "card_warrior_sword",
     "Ultimate Blast": "card_wizard_orbit",
 }
@@ -787,6 +788,51 @@ def blit_icon(surface, name, center, size, alpha=255):
     return True
 
 
+# Colored badge style per status-effect key (Priority 3, asset/UI polish
+# pass -- Professor Jenson's rubric wants stacking Strength/Weak/
+# Vulnerable/Truncate rendered as stylized badges, not the old plain
+# "Weak 2" text label). Entirely procedural (a filled circle + a short
+# glyph, drawn with primitives, no image file involved at all) so it can
+# never show up as a missing-icon empty box, whatever's on disk.
+STATUS_BADGE_STYLE = {
+    "strength": ((255, 168, 64), "STR"),
+    "weak": ((94, 170, 255), "WK"),
+    "vulnerable": ((233, 89, 89), "VUL"),
+    "truncate": ((177, 123, 255), "TRC"),
+}
+
+
+def draw_status_badges(surface, statuses, x, y, radius=15, gap=6):
+    """Draws one small stylized circular badge per active status effect,
+    left-to-right starting at (x, y) (y is the badge's vertical center),
+    with its stack/turn count in the corner. Unknown status keys (any
+    future addition) still get a clean badge via a generic muted style +
+    a 3-letter abbreviation of the name, so this never falls back to an
+    empty box or raw dict text either. Returns the x position just past
+    the last badge drawn, for callers that want to keep laying out more
+    UI to the right of it."""
+    cursor_x = x
+    for name, turns in statuses.items():
+        if turns <= 0:
+            continue
+        color, label = STATUS_BADGE_STYLE.get(name, (MUTED, name[:3].upper()))
+        center = (cursor_x + radius, y)
+        pygame.draw.circle(surface, (18, 20, 26), center, radius)
+        pygame.draw.circle(surface, color, center, radius, width=2)
+        label_surf = FONT_TINY.render(label, True, color)
+        lw, lh = label_surf.get_size() if hasattr(label_surf, "get_size") else (radius, radius)
+        surface.blit(label_surf, (center[0] - lw // 2, center[1] - lh // 2))
+        count_surf = FONT_TINY.render(str(turns), True, TEXT)
+        cw, ch = count_surf.get_size() if hasattr(count_surf, "get_size") else (8, 8)
+        badge_bg = pygame.Rect(0, 0, cw + 4, ch + 2)
+        badge_bg.center = (center[0] + radius - 2, center[1] - radius + 2)
+        pygame.draw.rect(surface, (18, 20, 26), badge_bg, border_radius=6)
+        pygame.draw.rect(surface, color, badge_bg, width=1, border_radius=6)
+        surface.blit(count_surf, (badge_bg.centerx - cw // 2, badge_bg.centery - ch // 2))
+        cursor_x += radius * 2 + gap
+    return cursor_x
+
+
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
@@ -1063,6 +1109,9 @@ CHARACTER_OPTIONS = {
 #   on_combat_start(game)                  -- start of every combat
 #   on_turn_start(game)                    -- start of every player turn
 #   on_roll(game, value, sides) -> value   -- folds over every dice roll
+#   on_roll_max(game, sides)               -- fires when a roll's FINAL value
+#                                              (after every on_roll fold above)
+#                                              lands on that die's max face
 #   on_block(game, amount) -> amount       -- folds over every block gain
 #   on_roll_fail(game)                     -- fires on a "low" dice roll
 #   on_rest(game, amount) -> amount        -- folds over rest-site healing
@@ -1222,6 +1271,19 @@ def _power_law_of_large_numbers_roll(game, value, sides):
     return min(sides, value + 1)
 
 
+def _power_sigma_asymptote_roll_max(game, sides):
+    # "Limit Supremacy": every time a die lands on its own maximum face
+    # (6 on a d6, 20 on a d20, etc. -- checked by roll_dice()/
+    # roll_dice_multi() AFTER every other on_roll modifier has already
+    # applied, so this reacts to the final rolled value the player
+    # actually sees), heal 3 HP and draw 1 card. A brand-new, uniquely-
+    # keyed power (Priority 4: does not touch Central Limit Theorem or
+    # Law of Large Numbers above).
+    game.heal_player(3)
+    game.draw_cards(1)
+    game.floating_text.append({"text": f"Max d{sides}! +3 HP, +1 card", "x": 420, "y": 190, "color": GREEN, "life": 1.1})
+
+
 POWER_LIBRARY = {
     "Central Limit Theorem": {
         "description": "At the start of each turn, gain 3 block.",
@@ -1230,6 +1292,10 @@ POWER_LIBRARY = {
     "Law of Large Numbers": {
         "description": "Your dice rolls gain +1 for the rest of combat.",
         "hooks": {"on_roll": _power_law_of_large_numbers_roll},
+    },
+    "Sigma Asymptote": {
+        "description": "Whenever a die roll lands on its maximum face, heal 3 HP and draw 1 card.",
+        "hooks": {"on_roll_max": _power_sigma_asymptote_roll_max},
     },
 }
 
@@ -1522,6 +1588,18 @@ CARD_LIBRARY = {
         "desc": "Power. Your dice rolls gain +1 for the rest of combat. Costs 0 energy.",
         "base": "Law of Large Numbers",
         "effect": lambda game: game.gain_power("Law of Large Numbers"),
+    },
+    # New Power card (Priority 4, "Safe Card Additions" -- Professor Jenson
+    # pass): a fresh, uniquely-keyed entry that does not touch Central Limit
+    # Theorem, Progressive Overload, or Spotter's Axiom above/below. See
+    # POWER_LIBRARY["Sigma Asymptote"] / _power_sigma_asymptote_roll_max for
+    # the actual heal+draw effect, wired through the existing on_roll_max
+    # hook (fires from roll_dice/roll_dice_multi whenever a die lands on
+    # its own maximum face) rather than any new bespoke code path.
+    "Sigma Asymptote": {
+        "cost": 2, "type": "power", "rarity": "rare",
+        "desc": "Power. Whenever a die roll lands on its maximum face, heal 3 HP and draw 1 card.",
+        "effect": lambda game: game.gain_power("Sigma Asymptote"),
     },
     "Weak Hypothesis": {
         "cost": 1, "type": "attack", "rarity": "uncommon",
@@ -2297,6 +2375,7 @@ CARD_ART_PALETTE = {
     "Confidence Interval": (120, 230, 170), "Bayesian Update": (255, 235, 150),
     "Integral Strike": (255, 130, 130), "Factorial Fury": (255, 100, 100),
     "Central Limit Theorem": (200, 150, 255), "Law of Large Numbers": (150, 210, 255),
+    "Sigma Asymptote": (150, 255, 230),
 }
 
 
@@ -2802,23 +2881,30 @@ def find_node(rows, node_id):
 # ---------------------------------------------------------------------------
 
 ENEMY_TEMPLATES = [
-    ("Husk of Unsolvable Variables", 28, 7, "aggressive"),
-    ("Glass Mathematician", 24, 10, "burst"),
-    ("Sentry of Error", 32, 8, "guard"),
-    ("Gambler's Shade", 30, 9, "aggressive"),
-    ("Axiom Warden", 36, 7, "guard"),
-    ("Oracle of Odds", 30, 11, "burst"),
-    ("Dice Hoarder", 26, 9, "aggressive"),
-    ("Probability Leech", 35, 8, "guard"),
-    ("Recursive Wraith", 27, 9, "burst"),
-    ("Infinite Loop", 31, 8, "guard"),
-    ("Rounding Error", 22, 12, "aggressive"),
+    # Attack values below carry a flat +2 tightening pass (Professor
+    # Jenson's "spam-to-win" note: on the original numbers, ignoring
+    # intents and mashing Attack cards cleared Act 1 too easily). HP,
+    # ai archetype, and every other regular-encounter stat are untouched
+    # -- this is a narrow, additive dial on incoming pressure only, not a
+    # rebalance of the roster. Elites/bosses (below) are already tuned
+    # separately and are left alone.
+    ("Husk of Unsolvable Variables", 28, 9, "aggressive"),
+    ("Glass Mathematician", 24, 12, "burst"),
+    ("Sentry of Error", 32, 10, "guard"),
+    ("Gambler's Shade", 30, 11, "aggressive"),
+    ("Axiom Warden", 36, 9, "guard"),
+    ("Oracle of Odds", 30, 13, "burst"),
+    ("Dice Hoarder", 26, 11, "aggressive"),
+    ("Probability Leech", 35, 10, "guard"),
+    ("Recursive Wraith", 27, 11, "burst"),
+    ("Infinite Loop", 31, 10, "guard"),
+    ("Rounding Error", 22, 14, "aggressive"),
     # New Act 1/2 probabilistic archetypes ("Chad Math" content) -- each has
     # its own custom intent/attack logic (see roll_enemy_intent/enemy_turn):
     # HP below is the template's base before per-floor scaling (+4/floor).
-    ("Decimal Demon", 48, 5, "decimal_demon"),
-    ("Fractal Fiend", 56, 5, "fractal_fiend"),
-    ("Vector Viper", 42, 7, "vector_viper"),
+    ("Decimal Demon", 48, 7, "decimal_demon"),
+    ("Fractal Fiend", 56, 7, "fractal_fiend"),
+    ("Vector Viper", 42, 9, "vector_viper"),
 ]
 
 ELITE_TEMPLATES = [
@@ -2987,6 +3073,7 @@ class Game:
         self.floating_text = []
         self.hit_flash = None
         self.turn_banner = None
+        self.phase_banner = None
         self.shake = {"timer": 0.0, "magnitude": 0}
         self.lunge = {"actor": None, "timer": 0.0, "duration": 0.22}
         self.power_aura = {"actor": None, "timer": 0.0, "duration": 1.2}
@@ -3025,6 +3112,12 @@ class Game:
         self.push_luck_active = False
         self.push_luck_banked = 0
         self.combat_card_bonus = {}
+        # Multi-slide tutorial/lore prologue (Priority 1 of Professor
+        # Jenson's feedback pass). Purely additive UI-navigation state --
+        # nothing here is read by any combat/EV/audit code path, so it
+        # can't affect math_audit.py or the existing test suite.
+        self.tutorial_slide = 0
+        self.tutorial_return_state = "map"
         self.player = {
             "name": self.character,
             "hp": 94,
@@ -3080,6 +3173,7 @@ class Game:
         self.floating_text = []
         self.hit_flash = None
         self.turn_banner = None
+        self.phase_banner = None
         self.shake = {"timer": 0.0, "magnitude": 0}
         self.lunge = {"actor": None, "timer": 0.0, "duration": 0.22}
         self.power_aura = {"actor": None, "timer": 0.0, "duration": 1.2}
@@ -3262,6 +3356,8 @@ class Game:
         self.floating_text.append({"text": f"d{sides}={value}", "x": 420, "y": 210, "color": GOLD, "life": 1.0})
         if value <= max(1, sides // 3):
             trigger_hook(self, "on_roll_fail")
+        if value >= sides:
+            trigger_hook(self, "on_roll_max", sides)
         # "Banks huge dice damage": a max-value roll on a big-enough die
         # (d8+) is exactly the kind of clutch moment the Power-Up pose is
         # meant to celebrate, same as playing a Power/Surge card.
@@ -3297,6 +3393,8 @@ class Game:
         for value in rolls:
             if value <= max(1, sides // 3):
                 trigger_hook(self, "on_roll_fail")
+            if value >= sides:
+                trigger_hook(self, "on_roll_max", sides)
         return rolls, total
 
     def roll_damage_card(self, sides, label, bonus=0):
@@ -3513,6 +3611,7 @@ class Game:
         self._crown_pending = False
         self._null_set_used = False
         self.turn_number = 1
+        self.phase_banner = None
         trigger_hook(self, "on_combat_start")  # e.g. Probability Crown arming
         self.dice_roll = None
         self.dice_sides = None
@@ -3758,12 +3857,22 @@ class Game:
             # The Derivative Dragon's Phase 2 transition: below 50% HP, it
             # clears every player debuff and every dragon roll thereafter
             # gets +3 (applied in roll_enemy_intent()).
+            dragon_phase2_just_triggered = False
             if self.enemy.get("dragon_phase2_pending") and self.enemy["hp"] <= self.enemy["max_hp"] // 2:
                 self.enemy["dragon_phase2_pending"] = False
                 self.enemy["dragon_phase"] = 2
                 self.enemy["dragon_rage_bonus"] = 3
                 self.player["statuses"] = {}
                 self.log_text = f"{self.enemy['name']} enters L'Hopital's Rage! All your debuffs are cleared, and its rolls surge +3."
+                # Visual Phase 2 transition (Priority 3, asset/UI polish
+                # pass): a dedicated flashing full-screen banner (see
+                # self.phase_banner / draw_phase_banner) plus a longer,
+                # heavier screen-shake than a normal hit -- applied below,
+                # AFTER the normal per-hit shake assignment so it doesn't
+                # get immediately overwritten by it. Purely cosmetic --
+                # doesn't touch dragon_rage_bonus or any damage math above.
+                self.phase_banner = {"text": "PHASE 2: L'HOPITAL'S RAGE!", "timer": 2.4, "duration": 2.4}
+                dragon_phase2_just_triggered = True
             note = " (Probability Crown crit!)" if crit else ""
             self.log_text = f"{source_name} hits {self.enemy['name']} for {dealt}{note}."
             self._spawn_damage_text(1060, 210, f"-{damage}" if damage > 0 else "BLOCKED", RED if damage > 0 else MUTED)
@@ -3771,6 +3880,8 @@ class Game:
             self.lunge = {"actor": "player", "timer": 0.22, "duration": 0.22}
             if damage > 0:
                 self.shake = {"timer": 0.16, "magnitude": min(12, 3 + damage // 4)}
+            if dragon_phase2_just_triggered:
+                self.shake = {"timer": 0.5, "magnitude": 18}
             if self.enemy["hp"] <= 0:
                 self._on_enemy_defeated()
             return damage
@@ -4122,6 +4233,11 @@ class Game:
             if self.turn_banner["timer"] <= 0:
                 self.turn_banner = None
 
+        if self.phase_banner:
+            self.phase_banner["timer"] -= dt
+            if self.phase_banner["timer"] <= 0:
+                self.phase_banner = None
+
         if self.dice_anim_timer > 0:
             self.dice_anim_timer = max(0.0, self.dice_anim_timer - dt)
 
@@ -4239,6 +4355,18 @@ def draw_title_screen(game):
         screen.blit(credit, cr)
 
     draw_settings_button(game)
+    draw_how_to_play_button(game)
+
+
+def draw_how_to_play_button(game):
+    """Small corner button, shown on the title screen, that jumps straight
+    into the 4-slide tutorial/lore prologue (see draw_tutorial) without
+    requiring a hero to be chosen first. Mirrors draw_settings_button's
+    placement convention (top corner, always visible on the title screen)."""
+    btn = pygame.Rect(16, 18, 176, 38)
+    hovered = btn.collidepoint(pygame.mouse.get_pos())
+    draw_button(screen, btn, "How to Play", GOLD, hovered=hovered, icon="event_question", font=FONT_SMALL)
+    game.button_rects["how_to_play"] = btn
 
 
 def draw_settings_button(game):
@@ -4249,6 +4377,149 @@ def draw_settings_button(game):
     hovered = settings_btn.collidepoint(pygame.mouse.get_pos())
     draw_button(screen, settings_btn, "Settings [Esc]", DIM, hovered=hovered, font=FONT_SMALL)
     game.button_rects["open_settings"] = settings_btn
+
+
+# ---------------------------------------------------------------------------
+# Multi-slide tutorial / lore prologue (Priority 1, Professor Jenson pass).
+# Pure presentation data + a pure-rendering function -- nothing here is
+# read by Game's combat/EV logic, so it can't touch math_audit.py or any
+# existing test.
+# ---------------------------------------------------------------------------
+
+# Enemy-intent legend colors, used by the tutorial's Slide 3 legend below.
+ENEMY_INTENT_COLOR_ATTACK = (214, 62, 62)
+ENEMY_INTENT_COLOR_DEFEND = (74, 140, 214)
+ENEMY_INTENT_COLOR_DEBUFF = (150, 90, 214)
+
+TUTORIAL_SLIDES = [
+    {
+        "title": "The Spire of Calculus",
+        "icon": "boss_number_dragon",
+        "lines": [
+            "Chad Math climbs the Spire to confront the ultimate calculus",
+            "titan atop it: the Derivative Dragon.",
+            "",
+            "Each floor is a branching map. Choose your path between",
+            "Combats, risk-taking Wagering Shrines, Campfires to rest or",
+            "upgrade a card, and -- at the top of every act -- a Floor Boss.",
+        ],
+    },
+    {
+        "title": "Turn Structure & Budget",
+        "icon": "energy_bolt",
+        "lines": [
+            "Every turn, you have 3 Energy to spend. Cards cost 0, 1, or 2",
+            "Energy each -- spend it wisely, since unused Energy is lost",
+            "at the end of your turn.",
+            "",
+            "You draw 5 cards at the start of every turn. Any cards left",
+            "in your hand when you end your turn are discarded.",
+        ],
+    },
+    {
+        "title": "Reading Enemy Intent",
+        "icon": "event_question",
+        "lines": [
+            "Every enemy shows an icon overhead each turn, telling you",
+            "exactly what it's about to do -- plan around it, not around",
+            "guesswork.",
+        ],
+        "legend": [
+            (ENEMY_INTENT_COLOR_ATTACK, "attack_fist", "Red Swords -- Incoming Damage"),
+            (ENEMY_INTENT_COLOR_DEFEND, "skill_shield", "Blue Shield -- Defending / Gaining Armor"),
+            (ENEMY_INTENT_COLOR_DEBUFF, "power_sparkles", "Purple Skull -- Debuff / Special Ability"),
+        ],
+        "footer": "Unblocked damage isn't undone at the next Campfire -- it permanently chips your HP across the whole run.",
+    },
+    {
+        "title": "Dice & The Math Inspector",
+        "icon": "dice",
+        "lines": [
+            "Playing a card stages a polyhedral die -- anywhere from a d4",
+            "to a d20 -- and rolls it live to resolve damage or recoil.",
+            "",
+            "Press [ M ] during combat to open the Math Inspector: a live",
+            "overlay showing the theoretical Expected Value,",
+            "E(V) = sum[ outcome_i * P(outcome_i) ], alongside a running",
+            "Law of Large Numbers tracker of every roll you've actually made",
+            "this session.",
+        ],
+    },
+]
+
+
+def draw_tutorial(game):
+    slide_index = max(0, min(game.tutorial_slide, len(TUTORIAL_SLIDES) - 1))
+    slide = TUTORIAL_SLIDES[slide_index]
+    panel = draw_center_panel(slide["title"], None, GOLD, pygame.Rect(200, 80, 880, 560))
+    blit_icon(screen, slide["icon"], (WIDTH // 2, panel.y + 128), 64)
+
+    y = panel.y + 178
+    for line in slide["lines"]:
+        if not line:
+            y += 16
+            continue
+        text = FONT_BODY.render(line, True, TEXT)
+        screen.blit(text, (panel.centerx - text.get_width() // 2, y))
+        y += 30
+
+    for color, icon_name, label in slide.get("legend", []):
+        row_w = 560
+        row_x = panel.centerx - row_w // 2
+        blit_icon(screen, icon_name, (row_x + 18, y + 14), 30)
+        pygame.draw.circle(screen, color, (row_x + 18, y + 14), 17, width=2)
+        label_surf = FONT_BODY.render(label, True, TEXT)
+        screen.blit(label_surf, (row_x + 44, y))
+        y += 40
+
+    footer = slide.get("footer")
+    if footer:
+        y += 8
+        footer_surf = FONT_SMALL.render(footer, True, MUTED)
+        # Footer text is a single long sentence -- wrap it manually at the
+        # panel width rather than pulling in a general-purpose wrapper for
+        # one call site.
+        max_w = panel.width - 80
+        words = footer.split(" ")
+        line = ""
+        for word in words:
+            candidate = (line + " " + word).strip()
+            if FONT_SMALL.size(candidate)[0] > max_w and line:
+                rendered = FONT_SMALL.render(line, True, MUTED)
+                screen.blit(rendered, (panel.centerx - rendered.get_width() // 2, y))
+                y += 24
+                line = word
+            else:
+                line = candidate
+        if line:
+            rendered = FONT_SMALL.render(line, True, MUTED)
+            screen.blit(rendered, (panel.centerx - rendered.get_width() // 2, y))
+            y += 24
+
+    # Progress dots (1-indexed for a friendlier "Slide 2 of 4" feel).
+    dots_label = FONT_SMALL.render(f"Slide {slide_index + 1} of {len(TUTORIAL_SLIDES)}", True, MUTED)
+    screen.blit(dots_label, (panel.centerx - dots_label.get_width() // 2, panel.bottom - 108))
+
+    back_btn = pygame.Rect(panel.x + 40, panel.bottom - 78, 180, 54)
+    next_btn = pygame.Rect(panel.right - 220, panel.bottom - 78, 180, 54)
+    skip_btn = pygame.Rect(panel.centerx - 90, panel.bottom - 78, 180, 54)
+
+    is_first = slide_index == 0
+    is_last = slide_index == len(TUTORIAL_SLIDES) - 1
+    draw_button(screen, back_btn, "Back", BLUE, hovered=back_btn.collidepoint(pygame.mouse.get_pos()), disabled=is_first)
+    draw_button(screen, next_btn, "Skip to Spire" if is_last else "Next", GOLD,
+                hovered=next_btn.collidepoint(pygame.mouse.get_pos()), icon="combat_swords" if is_last else None)
+    draw_button(screen, skip_btn, "Skip to Spire", MUTED, hovered=skip_btn.collidepoint(pygame.mouse.get_pos()))
+
+    if not is_first:
+        game.button_rects["tutorial_back"] = back_btn
+    else:
+        game.button_rects.pop("tutorial_back", None)
+    game.button_rects["tutorial_next"] = next_btn
+    if not is_last:
+        game.button_rects["tutorial_skip"] = skip_btn
+    else:
+        game.button_rects.pop("tutorial_skip", None)
 
 
 def draw_intro(game):
@@ -4904,9 +5175,7 @@ def draw_combat(game):
         blit_icon(screen, "skill_shield", (px + 250, py + 72), 18)
         screen.blit(FONT_SMALL.render(str(game.player["block"]), True, GOLD), (px + 264, py + 64))
     screen.blit(FONT_TINY.render(f"Gold {game.player['gold']}", True, GOLD), (px + 14, py + 82))
-    player_status = "  ".join(f"{k.title()} {v}" for k, v in game.player.get("statuses", {}).items())
-    if player_status:
-        screen.blit(FONT_TINY.render(player_status, True, PURPLE), (px + 120, py + 82))
+    draw_status_badges(screen, game.player.get("statuses", {}), px + 120, py + 86)
 
     # -- Player sprite stage: a dedicated backdrop with nothing else drawn
     #    on top of it. -------------------------------------------------------
@@ -4976,9 +5245,7 @@ def draw_combat(game):
                 intent_label = f"{predicted} dmg (Weak)" if predicted != raw_value else f"{raw_value} dmg"
         blit_icon(screen, ICON_INTENT.get(itype), (ex + 22, ey + 90), 18)
         screen.blit(FONT_SMALL.render(intent_label, True, color), (ex + 38, ey + 80))
-        enemy_status = "  ".join(f"{k.title()} {v}" for k, v in enemy.get("statuses", {}).items())
-        if enemy_status:
-            screen.blit(FONT_TINY.render(enemy_status, True, PURPLE), (ex + 148, ey + 84))
+        draw_status_badges(screen, enemy.get("statuses", {}), ex + 148, ey + 88, radius=13)
 
         stage_glow2 = pygame.Surface((enemy_stage.width, enemy_stage.height), pygame.SRCALPHA)
         pygame.draw.ellipse(stage_glow2, (200, 90, 90, 40), pygame.Rect(20, enemy_stage.height - 70, enemy_stage.width - 40, 60))
@@ -5116,6 +5383,25 @@ def draw_combat(game):
         bg_box = pygame.Surface((tw + 40, th + 20), pygame.SRCALPHA)
         pygame.draw.rect(bg_box, (10, 10, 16, 160), pygame.Rect(0, 0, tw + 40, th + 20), border_radius=12)
         screen.blit(bg_box, (bx - 20, by - 10))
+        screen.blit(banner_text, (bx, by))
+
+    if game.phase_banner:
+        # Flashing full-screen boss phase-transition banner (Priority 3,
+        # asset/UI polish pass) -- alternates gold/red a few times a
+        # second for the duration set when it's triggered (see
+        # dragon_phase2_pending's consumption in deal_damage()), then
+        # clears itself via update_effects()'s countdown above. Drawn
+        # after the normal turn_banner so it reads as the "bigger" event.
+        elapsed = game.phase_banner["duration"] - game.phase_banner["timer"]
+        flash_on = int(elapsed * 6) % 2 == 0
+        flash_color = RED if flash_on else GOLD
+        banner_text = FONT_TITLE.render(game.phase_banner["text"], True, flash_color)
+        tw, th = banner_text.get_size() if hasattr(banner_text, "get_size") else (400, 50)
+        bx, by = WIDTH // 2 - tw // 2, 210
+        bg_box = pygame.Surface((tw + 60, th + 30), pygame.SRCALPHA)
+        pygame.draw.rect(bg_box, (10, 10, 16, 200), pygame.Rect(0, 0, tw + 60, th + 30), border_radius=14)
+        pygame.draw.rect(bg_box, flash_color, pygame.Rect(0, 0, tw + 60, th + 30), width=3, border_radius=14)
+        screen.blit(bg_box, (bx - 30, by - 15))
         screen.blit(banner_text, (bx, by))
 
     # Draw the relic tooltip last so the character status panels cannot cover it.
@@ -6205,7 +6491,19 @@ def handle_keydown(game, event):
     if game.state == "title" and event.key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE):
         game.state = "intro"
         return
-    if event.key == pygame.K_l and game.state not in ("title", "character_select"):
+    if game.state == "tutorial" and event.key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE):
+        if game.tutorial_slide >= len(TUTORIAL_SLIDES) - 1:
+            game.state = game.tutorial_return_state
+        else:
+            game.tutorial_slide += 1
+        return
+    if game.state == "tutorial" and event.key == pygame.K_BACKSPACE:
+        game.tutorial_slide = max(0, game.tutorial_slide - 1)
+        return
+    if game.state == "tutorial" and event.key == pygame.K_ESCAPE:
+        game.state = game.tutorial_return_state
+        return
+    if event.key == pygame.K_l and game.state not in ("title", "character_select", "tutorial"):
         game.show_log = not game.show_log
         return
     if event.key == pygame.K_m and game.state == "combat":
@@ -6216,7 +6514,7 @@ def handle_keydown(game, event):
         game.deck_page = 0
         game.state = "deck_view"
         return
-    if event.key == pygame.K_d and game.state not in ("title", "character_select"):
+    if event.key == pygame.K_d and game.state not in ("title", "character_select", "tutorial"):
         if game.state == "deck_view":
             game.state = game.deck_return_state
         else:
@@ -6270,7 +6568,7 @@ def handle_click(game, pos):
 
     if state != "deck_view":
         deck_btn = game.button_rects.get("open_deck")
-        if deck_btn and deck_btn.collidepoint(pos) and state not in ("title", "character_select"):
+        if deck_btn and deck_btn.collidepoint(pos) and state not in ("title", "character_select", "tutorial"):
             game.deck_return_state = state
             game.deck_page = 0
             game.state = "deck_view"
@@ -6295,6 +6593,12 @@ def handle_click(game, pos):
         btn = game.button_rects.get("start_run")
         if btn and btn.collidepoint(pos):
             game.state = "intro"
+            return
+        btn = game.button_rects.get("how_to_play")
+        if btn and btn.collidepoint(pos):
+            game.tutorial_slide = 0
+            game.tutorial_return_state = "title"
+            game.state = "tutorial"
         return
 
     if state == "intro":
@@ -6308,7 +6612,32 @@ def handle_click(game, pos):
             btn = game.button_rects.get(f"select_{name}")
             if btn and btn.collidepoint(pos):
                 game.choose_character(name)
+                # choose_character() -> reset_run() -> start_new_map()
+                # already left game.state == "map" (untouched core logic --
+                # see reset_run()). Route through the tutorial first, then
+                # land on the map exactly where reset_run already put us.
+                game.tutorial_slide = 0
+                game.tutorial_return_state = game.state
+                game.state = "tutorial"
                 return
+        return
+
+    if state == "tutorial":
+        btn = game.button_rects.get("tutorial_back")
+        if btn and btn.collidepoint(pos):
+            game.tutorial_slide = max(0, game.tutorial_slide - 1)
+            return
+        btn = game.button_rects.get("tutorial_next")
+        if btn and btn.collidepoint(pos):
+            if game.tutorial_slide >= len(TUTORIAL_SLIDES) - 1:
+                game.state = game.tutorial_return_state
+            else:
+                game.tutorial_slide += 1
+            return
+        btn = game.button_rects.get("tutorial_skip")
+        if btn and btn.collidepoint(pos):
+            game.state = game.tutorial_return_state
+            return
         return
 
     if state == "map":
@@ -6465,6 +6794,7 @@ def handle_click(game, pos):
 STATE_RENDERERS = {
     "title": draw_title_screen,
     "intro": draw_intro,
+    "tutorial": draw_tutorial,
     "character_select": draw_character_select,
     "map": draw_map,
     "combat": draw_combat,
@@ -6488,7 +6818,7 @@ def render_frame(game):
     renderer = STATE_RENDERERS.get(game.state)
     if renderer:
         renderer(game)
-    if game.state not in ("title", "character_select", "deck_view"):
+    if game.state not in ("title", "character_select", "deck_view", "tutorial"):
         deck_btn = pygame.Rect(WIDTH - 190, 12, 160, 38)
         draw_button(screen, deck_btn, "Deck  [D]", BLUE, hovered=deck_btn.collidepoint(pygame.mouse.get_pos()), icon="deco_book", font=FONT_SMALL)
         game.button_rects["open_deck"] = deck_btn
