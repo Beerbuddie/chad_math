@@ -97,7 +97,10 @@ def play_one(seed, max_steps=6000):
             g.rest_upgrade_choose(random.choice(g.rest_upgrade_options))
         elif state == "shop":
             g.leave_shop()
+        elif state == "victory" and g.quiz_equation:
+            g.submit_quiz_answer(str(g.quiz_answer))
         elif state in ("victory", "gameover"):
+            assert state != "victory" or g.act == 3
             return state, g.floor
     return "timeout", g.floor
 

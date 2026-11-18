@@ -231,6 +231,7 @@ CARD_ICON = {
 # cards with a hand-picked commission go here -- everything else keeps
 # using its CARD_ICON entry (or the bare type icon) exactly as before.
 CARD_ART_FILES = {
+    "Gambler's Flurry": "gamblers_flurry",
     "Progressive Overload": "progressive_overload",
     "Spotter's Axiom": "spotters_axiom",
 }
@@ -265,8 +266,8 @@ CHARACTER_CARD_ART_FILES = {
 # actually start in a deck are re-skinned for that deck's character.
 CARD_PRESENTATION = {
     "Math Warrior": {
-        "Strike": ("Equation Breaker", "Deal 8 damage with brute-force algebra."),
-        "Strike+": ("Equation Breaker+", "Deal 12 damage with brute-force algebra."),
+        "Strike": ("Equation Breaker", "Deal 1d3 + 6 damage."),
+        "Strike+": ("Equation Breaker+", "Deal 1d3 + 10 damage."),
         "Defend": ("Iron Guard", "Gain 8 block."),
         "Defend+": ("Iron Guard+", "Gain 12 block."),
         "Arcane Dart": ("Dumbbell Jab", "Roll 1d6 + 2 damage."),
@@ -293,7 +294,7 @@ CARD_PRESENTATION = {
         "Arcane Dart": ("Riff Bolt", "Roll 1d6 + 2 damage."),
         "Arcane Dart+": ("Riff Bolt+", "Roll 1d6 + 5 damage."),
         "Reckless Roll": ("Whammy Bar Gambit", "Roll 1d10. 1 = hit yourself for 4, else deal double the roll."),
-        "Reckless Roll+": ("Whammy Bar Gambit+", "Roll 1d10. 1-2 = hit yourself for 4, else deal double the roll."),
+        "Reckless Roll+": ("Whammy Bar Gambit+", "Roll 1d10. 1-2 = hit yourself for 4, else deal triple the roll."),
         "Null Burst": ("Schrödinger's Riff", "Deal 15 or 7 damage (coin flip)."),
         "Null Burst+": ("Schrödinger's Riff+", "Deal 20 or 10 damage (coin flip)."),
         "Probability Shield": ("Amp Barrier", "Roll 1d8 and gain that much block."),
@@ -308,7 +309,7 @@ CARD_PRESENTATION = {
         "Dice Burst+": ("Shred Solo+", "Roll 1d12. Deal 13 + result damage."),
         "Ultimate Blast": (
             "Arcane Singularity",
-            "Roll 1d20 and deal 1.5x that much damage. Brain dump so hard "
+            "Roll 1d20 and deal 1.5x the roll, rounded up. Brain dump so hard "
             "you forget it forever after one use.",
         ),
     },
@@ -1120,7 +1121,7 @@ CHARACTER_OPTIONS = {
 
 
 def _relic_pis_defense_turn_start(game):
-    # 3.14 repeating -> rounds down to a flat 3 block, every turn (not just
+    # Pi -> rounds down to a flat 3 block, every turn (not just
     # the first one of combat -- that's the whole point of the rename from
     # the old "Weighted Lens", which only fired once per fight and was
     # barely worth having).
@@ -1193,13 +1194,9 @@ def _relic_null_set_lethal(game):
     return False
 
 
-def _relic_lucky_denominator_combat_start(game):
-    game.player["energy"] = game.player["max_energy"] + (1 if "Abacus Charm" in game.player["relics"] else 0)
-
-
 RELIC_LIBRARY = {
     "Pi's Defense": {
-        "description": "Gain 3.14 (repeating) block every turn. Rounds down to 3 block.",
+        "description": "Gain π (about 3.14) block each turn, rounded down to 3.",
         "rarity": "common",
         "hooks": {"on_turn_start": _relic_pis_defense_turn_start},
     },
@@ -1209,12 +1206,12 @@ RELIC_LIBRARY = {
         "hooks": {"on_victory": _relic_calculator_shield_victory},
     },
     "Ritual Prism": {
-        "description": "All dice rolls (combat and events) gain +2 to the result.",
+        "description": "Your rolls gain +2 in combat and events, capped at the highest face.",
         "rarity": "uncommon",
         "hooks": {"on_roll": _relic_ritual_prism_roll},
     },
     "Pencil of Fortune": {
-        "description": "Card rewards always offer at least one upgraded card.",
+        "description": "Normal card rewards always offer at least one upgraded card.",
         "rarity": "uncommon",
         "hooks": {},  # consulted directly by generate_card_reward_options
     },
@@ -1239,7 +1236,7 @@ RELIC_LIBRARY = {
         "hooks": {"on_roll": _relic_dice_sigil_roll},
     },
     "Probability Crown": {
-        "description": "Your first attack each combat automatically deals double damage.",
+        "description": "Your first hit each combat deals double damage.",
         "rarity": "rare",
         "hooks": {"on_combat_start": _relic_probability_crown_combat_start},
     },
@@ -1357,13 +1354,13 @@ def any_lethal_save(game):
 CARD_LIBRARY = {
     "Strike": {
         "cost": 1, "type": "attack", "rarity": "common",
-        "desc": "Deal 8 damage.",
+        "desc": "Deal 1d3 + 6 damage.",
         "upgrades_to": "Strike+",
         "effect": lambda game: game.class_strike(),
     },
     "Strike+": {
         "cost": 1, "type": "attack", "rarity": "common",
-        "desc": "Deal 12 damage.",
+        "desc": "Deal 1d3 + 10 damage.",
         "base": "Strike",
         "effect": lambda game: game.class_strike(upgraded=True),
     },
@@ -1399,13 +1396,13 @@ CARD_LIBRARY = {
     },
     "Reckless Roll+": {
         "cost": 1, "type": "attack", "rarity": "uncommon",
-        "desc": "Roll 1d10. 1-2 = hit yourself for 4, else deal double the roll.",
+        "desc": "Roll 1d10. 1-2 = hit yourself for 4, else deal triple the roll.",
         "base": "Reckless Roll",
         "effect": lambda game: game.reckless_roll(upgraded=True),
     },
     "Gambler's Flurry": {
         "cost": 1, "type": "attack", "rarity": "rare",
-        "desc": "Roll 1d6 for damage. Bust (1) ends your turn and costs 3 HP. "
+        "desc": "Roll 1d6 for damage. Bust (1) wipes the bank and deals 3 recoil. An opening bust ends your turn. "
                 "Otherwise, bank it and choose: strike now, or push your "
                 "luck and roll again.",
         "effect": lambda game: game.play_gamblers_flurry(),
@@ -1473,13 +1470,13 @@ CARD_LIBRARY = {
         "cost": 1, "type": "skill", "rarity": "uncommon",
         "desc": "Gain 10 block and lose 1 HP.",
         "upgrades_to": "Glass Guard+",
-        "effect": lambda game: (game.gain_block(10, "Glass Guard"), game.deal_damage(game.player, 1, "Glass Guard")),
+        "effect": lambda game: (game.gain_block(10, "Glass Guard"), game.lose_hp(1, "Glass Guard")),
     },
     "Glass Guard+": {
         "cost": 1, "type": "skill", "rarity": "uncommon",
         "desc": "Gain 15 block and lose 1 HP.",
         "base": "Glass Guard",
-        "effect": lambda game: (game.gain_block(15, "Glass Guard+"), game.deal_damage(game.player, 1, "Glass Guard+")),
+        "effect": lambda game: (game.gain_block(15, "Glass Guard+"), game.lose_hp(1, "Glass Guard+")),
     },
     "Dice Slash": {
         "cost": 1, "type": "attack", "rarity": "common",
@@ -1507,15 +1504,15 @@ CARD_LIBRARY = {
     },
     "Standard Deviation": {
         "cost": 2, "type": "attack", "rarity": "uncommon",
-        "desc": "Deal 6 damage 3 times.",
+        "desc": "Hit 3 times for 1d3 + 4 each.",
         "upgrades_to": "Standard Deviation+",
-        "effect": lambda game: [game.deal_damage(game.enemy, 6, "Standard Deviation") for _ in range(3)],
+        "effect": lambda game: game.multi_hit(3, 4, "Standard Deviation"),
     },
     "Standard Deviation+": {
         "cost": 2, "type": "attack", "rarity": "uncommon",
-        "desc": "Deal 6 damage 4 times.",
+        "desc": "Hit 4 times for 1d3 + 4 each.",
         "base": "Standard Deviation",
-        "effect": lambda game: [game.deal_damage(game.enemy, 6, "Standard Deviation+") for _ in range(4)],
+        "effect": lambda game: game.multi_hit(4, 4, "Standard Deviation+"),
     },
     "Confidence Interval": {
         "cost": 2, "type": "skill", "rarity": "uncommon",
@@ -1543,27 +1540,27 @@ CARD_LIBRARY = {
     },
     "Integral Strike": {
         "cost": 2, "type": "attack", "rarity": "rare",
-        "desc": "Deal damage equal to 6 times your remaining energy.",
+        "desc": "Deal (1d3 + 4) times (1 + energy left after paying).",
         "upgrades_to": "Integral Strike+",
-        "effect": lambda game: game.deal_damage(game.enemy, 6 * (game.player["energy"] + 1), "Integral Strike"),
+        "effect": lambda game: game.deal_damage(game.enemy, (game.roll_dice(3, "Integral Strike") + 4) * (game.player["energy"] + 1), "Integral Strike"),
     },
     "Integral Strike+": {
         "cost": 2, "type": "attack", "rarity": "rare",
-        "desc": "Deal damage equal to 9 times your remaining energy.",
+        "desc": "Deal (1d3 + 7) times (1 + energy left after paying).",
         "base": "Integral Strike",
-        "effect": lambda game: game.deal_damage(game.enemy, 9 * (game.player["energy"] + 1), "Integral Strike+"),
+        "effect": lambda game: game.deal_damage(game.enemy, (game.roll_dice(3, "Integral Strike+") + 7) * (game.player["energy"] + 1), "Integral Strike+"),
     },
     "Factorial Fury": {
         "cost": 3, "type": "attack", "rarity": "rare",
-        "desc": "Deal 5 damage 5 times.",
+        "desc": "Hit 5 times for 1d3 + 3 each.",
         "upgrades_to": "Factorial Fury+",
-        "effect": lambda game: [game.deal_damage(game.enemy, 5, "Factorial Fury") for _ in range(5)],
+        "effect": lambda game: game.multi_hit(5, 3, "Factorial Fury"),
     },
     "Factorial Fury+": {
         "cost": 3, "type": "attack", "rarity": "rare",
-        "desc": "Deal 7 damage 5 times.",
+        "desc": "Hit 5 times for 1d3 + 5 each.",
         "base": "Factorial Fury",
-        "effect": lambda game: [game.deal_damage(game.enemy, 7, "Factorial Fury+") for _ in range(5)],
+        "effect": lambda game: game.multi_hit(5, 5, "Factorial Fury+"),
     },
     "Central Limit Theorem": {
         "cost": 2, "type": "power", "rarity": "rare",
@@ -1603,40 +1600,37 @@ CARD_LIBRARY = {
     },
     "Weak Hypothesis": {
         "cost": 1, "type": "attack", "rarity": "uncommon",
-        "desc": "Deal 5 damage and apply 2 Weak for 2 turns.",
+        "desc": "Deal 1d3 + 3 damage. Apply Weak for 2 turns.",
         "drop_only": True,
         "upgrades_to": "Weak Hypothesis+",
-        "effect": lambda game: (game.deal_damage(game.enemy, 5, "Weak Hypothesis"), game.apply_status(game.enemy, "weak", 2)),
+        "effect": lambda game: (game.roll_damage_card(3, "Weak Hypothesis", bonus=3), game.apply_status(game.enemy, "weak", 2)),
     },
     "Weak Hypothesis+": {
         "cost": 1, "type": "attack", "rarity": "uncommon",
-        "desc": "Deal 8 damage and apply 3 Weak for 2 turns.",
+        "desc": "Deal 1d3 + 6 damage. Apply Weak for 3 turns.",
         "base": "Weak Hypothesis",
         "drop_only": True,
-        "effect": lambda game: (game.deal_damage(game.enemy, 8, "Weak Hypothesis+"), game.apply_status(game.enemy, "weak", 3)),
+        "effect": lambda game: (game.roll_damage_card(3, "Weak Hypothesis+", bonus=6), game.apply_status(game.enemy, "weak", 3)),
     },
     "Confidence Collapse": {
         "cost": 1, "type": "skill", "rarity": "uncommon",
-        "desc": "Apply 2 Vulnerable for 2 turns and draw 1 card.",
+        "desc": "Apply Vulnerable for 2 turns and draw 1 card.",
         "drop_only": True,
         "upgrades_to": "Confidence Collapse+",
         "effect": lambda game: (game.apply_status(game.enemy, "vulnerable", 2), game.draw_cards(1)),
     },
     "Confidence Collapse+": {
         "cost": 1, "type": "skill", "rarity": "uncommon",
-        "desc": "Apply 3 Vulnerable for 2 turns and draw 2 cards.",
+        "desc": "Apply Vulnerable for 3 turns and draw 2 cards.",
         "base": "Confidence Collapse",
         "drop_only": True,
         "effect": lambda game: (game.apply_status(game.enemy, "vulnerable", 3), game.draw_cards(2)),
     },
     "Misread Equation": {
         "cost": 0, "type": "skill", "rarity": "curse",
-        "desc": "Curse. When drawn, lose 6 HP. Never offered as a card reward. "
-                "Currently unreachable in normal play (no active source grants "
-                "it), but kept defined since CURSE_CARD_NAMES/REWARDABLE_CARDS "
-                "and older save-compatible tooling still reference it by name.",
+        "desc": "Curse. When drawn, lose 1d3 + 4 HP and remove this curse.",
         "drop_only": True,
-        "effect": lambda game: game.deal_damage(game.player, 6, "Misread Equation"),
+        "effect": lambda game: game.deal_damage(game.player, game.roll_dice(3, "Misread Equation") + 4, "Misread Equation", pierce=True),
     },
     "Ultimate Strike": {
         "cost": 0, "type": "attack", "rarity": "rare",
@@ -1648,7 +1642,7 @@ CARD_LIBRARY = {
     },
     "Ultimate Blast": {
         "cost": 0, "type": "attack", "rarity": "rare",
-        "desc": "Roll 1d20 and deal 1.5x that much damage. Brain dump so "
+        "desc": "Roll 1d20 and deal 1.5x the roll, rounded up. Brain dump so "
                 "hard you forget it forever after one use.",
         "drop_only": True,
         "exhaust": True,
@@ -1687,17 +1681,17 @@ ULTIMATE_CARD_NAMES = {"Ultimate Strike", "Ultimate Blast"}
 # ---------------------------------------------------------------------------
 CARD_EV = {
     # Strike is character-dependent (class_strike()): Math Warrior hits for
-    # a flat 8/12, Probability Wizard rolls 3d3/4d3 for Probability Missile.
+    # 1d3 + 6/10, Probability Wizard rolls 3d3/4d3 for Probability Missile.
     "Strike": lambda game: 3 * 2.0 if game.character == "Probability Wizard" else 8.0,
     "Strike+": lambda game: 4 * 2.0 if game.character == "Probability Wizard" else 12.0,
     "Arcane Dart": 3.5 + 2,
     "Arcane Dart+": 3.5 + 5,
     # Reckless Roll: 1d10, roll<=threshold backfires (0 enemy damage),
-    # otherwise deals 2x the roll. E(V) = Σ_{roll>threshold} (2*roll)/10.
+    # Successful rolls deal twice the face value, or three times when upgraded.
     "Reckless Roll": sum(2 * r for r in range(2, 11)) / 10,       # threshold 1
-    "Reckless Roll+": sum(2 * r for r in range(3, 11)) / 10,      # threshold 2
-    # Progressive Overload: 1d8 + 2, baseline (no accumulated combat bonus).
-    "Progressive Overload": 4.5 + 2,
+    "Reckless Roll+": sum(3 * r for r in range(3, 11)) / 10,      # threshold 2
+    # Use the current combat bonus for the preview.
+    "Progressive Overload": lambda game: 6.5 + game.combat_card_bonus.get("Progressive Overload", 0),
     "Chaos Bloom": 12 + 3.5,
     "Chaos Bloom+": 18 + 3.5,
     "Null Burst": (15 + 7) / 2,       # coin flip: heads 15, tails 7
@@ -1706,16 +1700,16 @@ CARD_EV = {
     "Dice Slash+": (1 + 20) / 2 + 4,
     "Dice Burst": (1 + 12) / 2 + 8,   # 1d12 + bonus
     "Dice Burst+": (1 + 12) / 2 + 13,
-    "Standard Deviation": 6 * 3,      # deterministic (no dice): 3 fixed hits
-    "Standard Deviation+": 7 * 4,
-    "Integral Strike": lambda game: 6 * (game.player["energy"] + 1),
-    "Integral Strike+": lambda game: 9 * (game.player["energy"] + 1),
-    "Factorial Fury": 5 * 5,          # deterministic: 5 fixed hits
+    "Standard Deviation": 6 * 3,      # Three independent 1d3 + 4 hits
+    "Standard Deviation+": 6 * 4,
+    "Integral Strike": lambda game: 6 * (1 + max(0, game.player["energy"] - 2)),
+    "Integral Strike+": lambda game: 9 * (1 + max(0, game.player["energy"] - 2)),
+    "Factorial Fury": 5 * 5,          # Five independent 1d3 + 3 hits
     "Factorial Fury+": 7 * 5,
-    "Weak Hypothesis": 5.0,           # deterministic damage portion (Weak debuff not counted in EV)
+    "Weak Hypothesis": 5.0,           # Weak debuff excluded from damage EV
     "Weak Hypothesis+": 8.0,
     "Ultimate Strike": (1 + 20) / 2,  # 1d20 (also grants that much block, EV shown is damage only)
-    "Ultimate Blast": (1 + 20) / 2 * 1.5,
+    "Ultimate Blast": sum(math.ceil(r * 1.5) for r in range(1, 21)) / 20,
 }
 
 
@@ -2386,8 +2380,8 @@ def _base_card_name(card_name):
 def card_upgrade_deltas(base_card_name):
     """Compares a base card's desc text against its upgraded desc text and
     returns a list of (original, upgraded, delta) for every number that
-    increased, in reading order -- e.g. "Deal 8 damage." -> "Deal 12
-    damage." gives [(8, 12, 4)]. Used by the rest-site upgrade picker so
+    increased, in reading order -- e.g. "Deal 1d3 + 6 damage." -> "Deal 1d3 + 10
+    damage." gives [(6, 10, 4)]. Used by the rest-site upgrade picker so
     forging a card shows exactly how much it gains instead of just the
     upgraded card's raw description. Numbers that are identical between the
     two descriptions (like an unchanged "1d6" die size) are skipped, and if
@@ -2442,18 +2436,15 @@ def draw_card_art(surface, card_name, body, rarity_color, character=None):
     icon_name = CARD_ICON.get(base_name, ICON_CARD_TYPE.get(CARD_LIBRARY[card_name]["type"]))
     icon_size = int(art_rect.height * 0.82)
     if not blit_icon(surface, icon_name, art_rect.center, icon_size):
-        glyph = FONT_H1.render(base_name[:1], True, WHITE)
+        glyph_font = FONT_H1 if FONT_H1.size("M")[1] <= art_rect.height else FONT_TINY
+        glyph = glyph_font.render(base_name[:1], True, WHITE)
         gr = glyph.get_rect(center=art_rect.center)
         surface.blit(glyph, gr)
     return art_rect
 
 
 def draw_card_frame(surface, card_name, rect, hovered=False, selected=False, affordable=True):
-    """Card chrome only (background gradient, border, type stripe, glows) --
-    no art and no unaffordable-dimming. Both of those now happen in
-    render_card() *after* the math footer is drawn, so the dim overlay
-    (when present) darkens the footer's numbers along with everything else
-    instead of leaving them undimmed on an unaffordable card."""
+    """Paint the frame beneath the illustration, badges, text and final dim overlay."""
     card = CARD_LIBRARY[card_name]
     rarity = card.get("rarity", "common")
     type_color = TYPE_COLORS.get(card["type"], MUTED)
@@ -2512,7 +2503,7 @@ def _card_footer_rect(body):
     draw_card_math_footer() collapses to one abbreviated line to fit it.
     Called both to reserve space (before the description is laid out) and
     to actually draw into (after), so the two never disagree."""
-    compact = body.height < 130
+    compact = body.height < 165
     footer_h = max(15, int(body.height * (0.13 if compact else 0.19)))
     return pygame.Rect(body.x + 10, body.bottom - footer_h - 5, body.width - 20, footer_h)
 
@@ -2524,7 +2515,7 @@ def draw_card_math_footer(surface, body, math_data):
     even that doesn't fit FONT_TINY's width."""
     ev, eff, recoil = math_data
     footer = _card_footer_rect(body)
-    compact = body.height < 130
+    compact = body.height < 165
 
     pygame.draw.line(surface, (255, 205, 70, 130), (footer.x, footer.y - 3), (footer.right, footer.y - 3), 1)
 
@@ -2536,6 +2527,8 @@ def draw_card_math_footer(surface, body, math_data):
             parts.append(f"-{recoil:.1f}")
         line = " · ".join(parts)
         font = FONT_TINY if FONT_TINY.size(line)[0] <= footer.width else FONT_MICRO
+        if font.size(line)[0] > footer.width:
+            line = parts[0]
         text = font.render(line, True, GREEN)
         ty = footer.y + max(0, (footer.height - text.get_height()) // 2)
         surface.blit(text, (footer.centerx - text.get_width() // 2, ty))
@@ -2554,28 +2547,26 @@ def draw_card_math_footer(surface, body, math_data):
             t2 = FONT_TINY.render(line2, True, GREEN)
             if t2.get_width() > footer.width:
                 t2 = FONT_MICRO.render(line2, True, GREEN)
+            if t2.get_width() > footer.width:
+                t2 = FONT_MICRO.render(line2.replace(" dmg/E", "/E").replace(" recoil", ""), True, GREEN)
             ly = footer.y + t1.get_height()
             surface.blit(t2, (footer.centerx - t2.get_width() // 2, ly))
     return footer
+
+
+def _card_title(name, width):
+    for font in (FONT_SMALL, FONT_TINY, FONT_MICRO):
+        if font.size(name)[0] <= width:
+            return font.render(name, True, TEXT)
+    while name and font.size(name + "…")[0] > width:
+        name = name[:-1]
+    return font.render(name + "…", True, TEXT)
 
 
 def render_card(surface, card_name, rect, hovered=False, selected=False, affordable=True, character=None, game=None):
     card = CARD_LIBRARY[card_name]
     body = draw_card_frame(surface, card_name, rect, hovered, selected, affordable)
     rarity_color = RARITY_COLORS.get(card.get("rarity", "common"), MUTED)
-
-    # Cost badge (top-left, overlapping the frame corner like Slay the Spire).
-    badge_r = max(12, int(body.width * 0.115))
-    badge_center = (body.x + badge_r + 4, body.y + badge_r + 2)
-    pygame.draw.circle(surface, (16, 14, 20), badge_center, badge_r)
-    pygame.draw.circle(surface, GOLD, badge_center, badge_r, max(2, badge_r // 8))
-    cost_text = FONT_HEADER.render(str(card["cost"]), True, GOLD)
-    ctr = cost_text.get_rect(center=badge_center)
-    surface.blit(cost_text, ctr)
-
-    # Small type icon, top-right corner (art panel already carries the big icon).
-    type_icon = ICON_CARD_TYPE.get(card["type"])
-    blit_icon(surface, type_icon, (body.right - badge_r - 6, body.y + badge_r + 2), badge_r)
 
     # Math footer (E(V)/cost-efficiency/recoil) is baked permanently onto
     # the card face at every render_card() size, not just in the hover
@@ -2591,11 +2582,23 @@ def render_card(surface, card_name, rect, hovered=False, selected=False, afforda
 
     draw_card_art(surface, card_name, content, rarity_color, character)
 
+    # Cost badge (top-left, overlapping the frame corner like Slay the Spire).
+    badge_r = max(12, int(body.width * 0.115))
+    badge_center = (body.x + badge_r + 4, body.y + badge_r + 2)
+    pygame.draw.circle(surface, (16, 14, 20), badge_center, badge_r)
+    pygame.draw.circle(surface, GOLD, badge_center, badge_r, max(2, badge_r // 8))
+    cost_font = FONT_HEADER if FONT_HEADER.size("0")[1] <= 2 * badge_r - 4 else FONT_SMALL
+    cost_text = cost_font.render(str(card["cost"]), True, GOLD)
+    ctr = cost_text.get_rect(center=badge_center)
+    surface.blit(cost_text, ctr)
+
+    # Small type icon, top-right corner (art panel already carries the big icon).
+    type_icon = ICON_CARD_TYPE.get(card["type"])
+    blit_icon(surface, type_icon, (body.right - badge_r - 6, body.y + badge_r + 2), badge_r)
+
     name_y = content.y + int(content.height * 0.52)
     display_name, display_desc = card_presentation(character, card_name) if character else (card_name, card["desc"])
-    name_surface = FONT_SMALL.render(display_name, True, TEXT)
-    if name_surface.get_size()[0] > body.width - 16:
-        name_surface = FONT_TINY.render(card_name, True, TEXT)
+    name_surface = _card_title(display_name, body.width - 12)
     nr = name_surface.get_rect(centerx=body.centerx, y=name_y)
     surface.blit(name_surface, nr)
 
@@ -2606,11 +2609,11 @@ def render_card(surface, card_name, rect, hovered=False, selected=False, afforda
     y = divider_y + 8
     max_y = content.bottom - 6
     for line in render_lines(FONT_TINY, desc_lines[:5], color=MUTED):
-        if y + 14 > max_y:
+        if y + line.get_height() > max_y:
             break
         lr = line.get_rect(centerx=body.centerx, y=y)
         surface.blit(line, lr)
-        y += 15
+        y += line.get_height()
 
     if math_data is not None:
         draw_card_math_footer(surface, body, math_data)
@@ -2665,9 +2668,7 @@ def _shop_item_frame(surface, rect, hovered, affordable, top_color, border_color
 
 def _shop_item_text(surface, body, name, desc):
     name_y = body.y + int(body.height * 0.52)
-    name_surface = FONT_SMALL.render(name, True, TEXT)
-    if name_surface.get_size()[0] > body.width - 16:
-        name_surface = FONT_TINY.render(name, True, TEXT)
+    name_surface = _card_title(name, body.width - 12)
     nr = name_surface.get_rect(centerx=body.centerx, y=name_y)
     surface.blit(name_surface, nr)
 
@@ -2678,11 +2679,11 @@ def _shop_item_text(surface, body, name, desc):
     y = divider_y + 8
     max_y = body.bottom - 10
     for line in render_lines(FONT_TINY, desc_lines[:5], color=MUTED):
-        if y + 14 > max_y:
+        if y + line.get_height() > max_y:
             break
         lr = line.get_rect(centerx=body.centerx, y=y)
         surface.blit(line, lr)
-        y += 15
+        y += line.get_height()
 
 
 def render_shop_relic_card(surface, relic_name, rect, hovered=False, affordable=True):
@@ -2925,13 +2926,13 @@ BOSS_TEMPLATES = [
     ("The Singularity", "guard"),
 ]
 
-# Bosses were hitting too hard -- a flat 5% reduction applied to every
+# Calibrated against full three-act heuristic runs. Applies to every
 # damage-dealing intent a boss rolls (see roll_enemy_intent()), regardless
 # of which ai archetype it's using. Block intents are untouched (that's the
 # boss defending, not attacking) and this never applies outside combat_boss
 # fights, so regular enemies/elites sharing the same ai names (guard/burst/
 # aggressive) are unaffected.
-BOSS_DAMAGE_NERF = 0.95
+BOSS_DAMAGE_NERF = 0.48
 
 
 def apply_special_enemy_traits(enemy):
@@ -3326,6 +3327,13 @@ class Game:
             self.floating_text.append({"text": f"+{healed}", "x": 200, "y": 210, "color": GREEN, "life": 0.9})
         return healed
 
+    def lose_hp(self, amount, source_name):
+        """Apply an HP payment or damage that has already passed mitigation."""
+        self.player["hp"] = max(0, self.player["hp"] - amount)
+        if self.player["hp"] == 0 and not any_lethal_save(self):
+            self.state = "gameover"
+            self.log_text = f"{source_name} finishes you off."
+
     def gain_block(self, amount, source_name, silent=False):
         total = apply_block_modifiers(self, amount)
         self.player["block"] += total
@@ -3344,8 +3352,10 @@ class Game:
         bucket = self.roll_history.setdefault(sides, {})
         bucket[value] = bucket.get(value, 0) + 1
 
-    def roll_dice(self, sides, label="Roll"):
+    def roll_dice(self, sides, label="Roll", *, enemy=False):
         raw = random.randint(1, sides)
+        if enemy:
+            return raw  # Enemy intents do not trigger player relics and powers.
         value = apply_roll_modifiers(self, raw, sides)
         self._record_roll(sides, value)
         self.dice_roll = value
@@ -3410,8 +3420,8 @@ class Game:
         self.trigger_power_pose("player")  # Ultimates are Surge cards — always pose, win or lose the roll.
         roll = self.roll_dice(20, "Ultimate Strike")
         self.deal_damage(self.enemy, roll, "Ultimate Strike")
-        self.player["block"] += roll
-        self.log_text = f"Ultimate Strike: d20={roll} — {roll} damage dealt and {roll} block gained."
+        gained = self.gain_block(roll, "Ultimate Strike")
+        self.log_text = f"Ultimate Strike: d20={roll} — {roll} damage dealt and {gained} block gained."
         return roll
 
     def ultimate_blast_effect(self):
@@ -3432,6 +3442,13 @@ class Game:
         self.deal_damage(self.enemy, amount, label)
         return amount
 
+    def multi_hit(self, hits, bonus, label):
+        rolls, _ = self.roll_dice_multi(3, hits, label)
+        for roll in rolls:
+            if self.enemy is None:
+                break
+            self.deal_damage(self.enemy, roll + bonus, label)
+
     def class_strike(self, upgraded=False):
         if self.character == "Probability Wizard":
             hits = 4 if upgraded else 3
@@ -3439,7 +3456,7 @@ class Game:
             for result in rolls:
                 self.deal_damage(self.enemy, result, "Probability Missile")
             return total
-        amount = 12 if upgraded else 8
+        amount = self.roll_dice(3, "Equation Breaker") + (10 if upgraded else 6)
         self.deal_damage(self.enemy, amount, "Equation Breaker" if not upgraded else "Equation Breaker+")
         return amount
 
@@ -3449,7 +3466,7 @@ class Game:
         if roll <= threshold:
             self.deal_damage(self.player, 4, "Reckless Roll backfire")
         else:
-            self.deal_damage(self.enemy, roll * 2, "Reckless Roll")
+            self.deal_damage(self.enemy, roll * (3 if upgraded else 2), "Reckless Roll")
 
     # -- Progressive Overload: escalates within a single combat --------------
     #
@@ -3458,9 +3475,7 @@ class Game:
     # combat, so replaying the card later in the same fight hits harder --
     # "every set must be heavier than the last." combat_card_bonus is reset
     # to {} at the start of every combat (see start_combat/__init__), so
-    # nothing carries over between fights. CARD_EV's static 6.5 baseline
-    # deliberately doesn't include this live bonus, same as how Reckless
-    # Roll's CARD_EV ignores the player's actual current state.
+    # nothing carries over between fights. The card preview includes this bonus.
     def play_progressive_overload(self):
         bonus = self.combat_card_bonus.get("Progressive Overload", 0)
         roll = self.roll_dice(8, "Progressive Overload")
@@ -3529,8 +3544,10 @@ class Game:
         self.log_text = f"Gambler's Flurry: rolled {roll}. Banked damage: {self.push_luck_banked}."
 
     def push_luck_next_roll_ev(self):
-        """E(Next Roll) = -(B+3)/6 + 20/6 = (17-B)/6, B = current bank."""
-        return (17 - self.push_luck_banked) / 6
+        """Expected change in the bank, counting recoil, over six raw faces."""
+        faces = [apply_roll_modifiers(self, raw, 6) for raw in range(1, 7)]
+        loss = self.push_luck_banked + self.GAMBLERS_FLURRY_RECOIL
+        return sum(-loss if face == 1 else face for face in faces) / 6
 
     def roll_block(self, bonus=0, label="Probability Shield"):
         roll = self.roll_dice(8, label)
@@ -3541,8 +3558,7 @@ class Game:
         spotter "catching" the lift, and a direct nod to the x2 die shown
         in the card's art. A pure block card like Defend/Probability
         Shield, so (matching their precedent) it's deliberately left out
-        of CARD_EV/CARD_RECOIL_EV, which are damage-only, and out of
-        math_audit.py's action list, which only audits damage actions."""
+        of CARD_EV/CARD_RECOIL_EV, which are damage-only, and gets a separate block audit row. Its block distribution is checked in math_audit.py."""
         roll = self.roll_dice(6, "Spotter's Axiom")
         self.gain_block(roll * 2, "Spotter's Axiom")
 
@@ -3562,8 +3578,9 @@ class Game:
                 self.hand.append(card)
                 if card == "Misread Equation":
                     self.hand.remove(card)
-                    self.deal_damage(self.player, 6, "Misread Equation")
-                    self.log_text = "Misread Equation: you lose 6 HP from the bad calculation."
+                    CARD_LIBRARY[card]["effect"](self)
+                    if self.state == "gameover":
+                        break
 
     def full_deck_cards(self):
         return self.draw_pile + self.discard + self.hand
@@ -3600,6 +3617,7 @@ class Game:
         )
 
     def start_combat(self, enemy, elite=False, boss=False):
+        self.player["block"] = 0
         self.enemy = enemy
         self.combat_elite = elite
         self.combat_boss = boss
@@ -3635,32 +3653,32 @@ class Game:
             if random.random() < 0.45:
                 enemy["intent"] = {"type": "block", "value": 6 + self.effective_floor()}
             else:
-                enemy["intent"] = {"type": "attack", "value": enemy["attack"] + random.randint(1, 6)}
+                enemy["intent"] = {"type": "attack", "value": enemy["attack"] + self.roll_dice(6, enemy=True)}
         elif ai == "burst":
             if random.random() < 0.35:
-                enemy["intent"] = {"type": "burst", "value": enemy["attack"] + 8}
+                enemy["intent"] = {"type": "burst", "value": enemy["attack"] + 6 + self.roll_dice(3, enemy=True)}
             else:
-                enemy["intent"] = {"type": "attack", "value": enemy["attack"]}
+                enemy["intent"] = {"type": "attack", "value": enemy["attack"] - 2 + self.roll_dice(3, enemy=True)}
         elif ai == "decimal_demon":
             # "Floating Point Shift": 1d10 damage + Truncate (-1 to the
             # player's dice rolls next turn). E(V) = 5.5 -- see the Math
             # Inspector's enemy_intent_ev().
-            enemy["intent"] = {"type": "decimal_shift", "value": random.randint(1, 10)}
+            enemy["intent"] = {"type": "decimal_shift", "value": self.roll_dice(10, enemy=True)}
         elif ai == "fractal_fiend":
             # "Mandelbrot Recursion": 2d4; rolling doubles recurses an extra
             # 1d4 hit. E(V) = 5 + 0.25*2.5 = 5.625.
-            d1, d2 = random.randint(1, 4), random.randint(1, 4)
+            d1, d2 = self.roll_dice(4, enemy=True), self.roll_dice(4, enemy=True)
             total = d1 + d2
             doubles = d1 == d2
             if doubles:
-                total += random.randint(1, 4)
+                total += self.roll_dice(4, enemy=True)
             enemy["intent"] = {"type": "fractal_recursion", "value": total, "doubles": doubles}
         elif ai == "vector_viper":
             # Alternates between a high-speed piercing strike (3d4, bypasses
             # block entirely) and a turn spent building evade/defend charges.
             phase = enemy.get("viper_phase", 0)
             if phase == 0:
-                rolls = [random.randint(1, 4) for _ in range(3)]
+                rolls = [self.roll_dice(4, enemy=True) for _ in range(3)]
                 enemy["intent"] = {"type": "vector_pierce", "value": sum(rolls), "rolls": rolls}
             else:
                 enemy["intent"] = {"type": "block", "value": 10 + self.effective_floor()}
@@ -3668,20 +3686,20 @@ class Game:
         elif ai == "radical_wraith":
             # "Root Extraction": 1d12; a perfect square (1, 4, 9) triples
             # the damage AND heals the wraith for the roll amount.
-            roll = random.randint(1, 12)
+            roll = self.roll_dice(12, enemy=True)
             perfect_square = roll in (1, 4, 9)
             value = roll * 3 if perfect_square else roll
             enemy["intent"] = {"type": "root_extraction", "value": value, "roll": roll, "square": perfect_square}
         elif ai == "derivative_dragon":
             # "Chain Rule Breath": 2d8, plus the +3 L'Hopital's Rage bonus
             # to every roll once Phase 2 has triggered (see deal_damage()).
-            rolls = [random.randint(1, 8) for _ in range(2)]
+            rolls = [self.roll_dice(8, enemy=True) for _ in range(2)]
             bonus = enemy.get("dragon_rage_bonus", 0)
             enemy["intent"] = {"type": "chain_rule_breath", "value": sum(rolls) + bonus, "rolls": rolls, "bonus": bonus}
         else:
-            enemy["intent"] = {"type": "attack", "value": enemy["attack"] + random.randint(1, 5)}
+            enemy["intent"] = {"type": "attack", "value": enemy["attack"] + self.roll_dice(5, enemy=True)}
 
-        # 5% boss damage nerf, applied uniformly across every ai archetype
+        # Boss damage multiplier, applied uniformly across every ai archetype
         # above (including the Derivative Dragon's dice-based chain_rule_
         # breath) so it can't be missed on a case-by-case basis. Only boss
         # fights are affected -- combat_boss is False for regular enemies
@@ -3720,14 +3738,14 @@ class Game:
 
         self.player["energy"] -= card["cost"]
         self.hand.remove(card_name)
+        card["effect"](self)
         if not card.get("exhaust"):
             self.discard.append(card_name)
-        card["effect"](self)
         # card effects (deal_damage / _on_enemy_defeated / lethal checks) own
         # every resulting state transition — nothing else to do here.
 
     def end_player_turn(self):
-        if self.state != "combat":
+        if self.state != "combat" or self.push_luck_active:
             return
         self.discard.extend(self.hand)
         self.hand = []
@@ -3742,7 +3760,9 @@ class Game:
         if not self.enemy or self.state != "combat":
             return
         self.enemy["block"] = 0
-        intent = self.enemy.get("intent") or {"type": "attack", "value": self.enemy["attack"]}
+        if not self.enemy.get("intent"):
+            self.roll_enemy_intent(self.enemy)
+        intent = self.enemy["intent"]
 
         if intent["type"] == "block":
             gained = intent["value"]
@@ -3828,6 +3848,8 @@ class Game:
     def deal_damage(self, target, amount, source_name, pierce=False):
         if target is self.enemy and self.enemy is not None:
             dealt = amount
+            if self.player.get("statuses", {}).get("weak", 0) > 0:
+                dealt = math.floor(dealt * 0.5)
             if self.enemy.get("statuses", {}).get("vulnerable", 0) > 0:
                 dealt = math.ceil(dealt * 1.5)
             crit = False
@@ -3887,10 +3909,8 @@ class Game:
             return damage
         elif target is self.player:
             damage = amount
-            if self.enemy is not None and self.enemy.get("statuses", {}).get("weak", 0) > 0:
-                damage = max(0, math.floor(damage * 0.5))
-            elif self.player.get("statuses", {}).get("weak", 0) > 0:
-                damage = max(0, math.floor(damage * 0.5))
+            if self.enemy and source_name == self.enemy["name"]:
+                damage = weak_adjusted_damage(self, damage)
             if pierce:
                 # Vector Viper's "Cross Product Strike" bypasses block
                 # entirely -- Weak (above) still applies (it reduces the
@@ -3900,8 +3920,6 @@ class Game:
                 absorbed = min(self.player["block"], damage)
                 self.player["block"] -= absorbed
                 damage -= absorbed
-            if damage > 0:
-                self.player["hp"] -= damage
             self.log_text = f"{source_name} hits you for {damage}."
             self._spawn_damage_text(200, 210, f"-{damage}" if damage > 0 else "BLOCKED", RED if damage > 0 else MUTED)
             self.hit_flash = {"target": "player", "timer": 0.18}
@@ -3909,13 +3927,8 @@ class Game:
                 self.lunge = {"actor": "enemy", "timer": 0.22, "duration": 0.22}
             if damage > 0:
                 self.shake = {"timer": 0.16, "magnitude": min(12, 3 + damage // 4)}
-            if self.player["hp"] <= 0:
-                if any_lethal_save(self):
-                    pass
-                else:
-                    self.player["hp"] = 0
-                    self.state = "gameover"
-                    self.log_text = f"{source_name} finishes you off."
+            if damage > 0:
+                self.lose_hp(damage, source_name)
             return damage
         return None
 
@@ -3928,6 +3941,8 @@ class Game:
         was_elite = self.combat_elite
         was_boss = self.combat_boss
         self.enemy = None
+        self.player["active_powers"] = []
+        self.player["statuses"] = {}
 
         if was_boss:
             if self.act == 3:
@@ -3956,12 +3971,14 @@ class Game:
                 picks[-1] = random.choice(status_pool)
         if not picks:
             picks = [random.choice(pool or list(STATUS_CARD_NAMES))]
-        if "Pencil of Fortune" in self.player["relics"]:
+        if "Pencil of Fortune" in self.player["relics"] and not any("base" in CARD_LIBRARY[n] for n in picks):
             for i, name in enumerate(picks):
                 upgraded = CARD_LIBRARY[name].get("upgrades_to")
                 if upgraded:
                     picks[i] = upgraded
                     break
+            else:
+                picks[-1] = random.choice([CARD_LIBRARY[n]["upgrades_to"] for n in pool if "upgrades_to" in CARD_LIBRARY[n]])
         return picks
 
     def generate_boss_card_reward_options(self, count=3):
@@ -5337,7 +5354,8 @@ def draw_combat(game):
         # had to abbreviate to a single compact line.
         if hovered_card is not None:
             card_data = CARD_LIBRARY[hovered_card]
-            lines = wrapped_text(FONT_SMALL, f"{hovered_card} ({card_data['cost']} energy): {card_data['desc']}", 340)
+            display_name, desc = card_presentation(game.character, hovered_card)
+            lines = wrapped_text(FONT_SMALL, f"{display_name} ({card_data['cost']} energy): {desc}", 340)
 
             math_lines = []
             ev = card_ev(game, hovered_card)
@@ -5419,8 +5437,6 @@ def weak_adjusted_damage(game, raw_value):
     showing the pre-Weak raw value and looking like Weak does nothing."""
     if game.enemy is not None and game.enemy.get("statuses", {}).get("weak", 0) > 0:
         return max(0, math.floor(raw_value * 0.5))
-    if game.player.get("statuses", {}).get("weak", 0) > 0:
-        return max(0, math.floor(raw_value * 0.5))
     return raw_value
 
 
@@ -5462,11 +5478,10 @@ def enemy_intent_ev(intent):
         # roll_enemy_intent() -- kept in sync here so the Math Inspector's
         # theoretical E(V) matches what the boss will really deal.
         bonus = intent.get("bonus", 0)
-        raw = 9.0 + bonus
+        outcomes = [math.floor((a + b + bonus) * BOSS_DAMAGE_NERF) for a in range(1, 9) for b in range(1, 9)]
         return (
-            f"E(V) = (2d8{f' + {bonus} rage' if bonus else ''}) × {BOSS_DAMAGE_NERF} boss nerf"
-            f" = (2×4.5{f' + {bonus}' if bonus else ''}) × {BOSS_DAMAGE_NERF}",
-            raw * BOSS_DAMAGE_NERF,
+            f"E(V) = mean of floor((2d8 + {bonus}) × {BOSS_DAMAGE_NERF}) over 64 outcomes",
+            sum(outcomes) / 64,
         )
     # Already-resolved intents (block/burst/attack): no distribution left to
     # average over, just show the known outcome.
@@ -5695,9 +5710,8 @@ def draw_deck_view(game):
         pygame.draw.circle(screen, PANEL_LIGHT, icon_center, 20)
         pygame.draw.circle(screen, border, icon_center, 20, 2)
         blit_icon(screen, CARD_ICON.get(_base_card_name(card_name), ICON_CARD_TYPE.get(CARD_LIBRARY[card_name]["type"])), icon_center, 24)
-        name = FONT_HEADER.render(card_name, True, TEXT)
-        if name.get_width() > rect.width - 64:
-            name = FONT_SMALL.render(card_name, True, TEXT)
+        display_name, desc = card_presentation(game.character, card_name)
+        name = _card_title(display_name, rect.width - 68)
         screen.blit(name, (rect.x + 58, rect.y + 13))
         screen.blit(FONT_TINY.render(f"x{count}  •  {CARD_LIBRARY[card_name]['cost']} energy", True, GOLD), (rect.x + 58, rect.y + 38))
         # "Audit Deck" (Rest Site): show each card's damage Expected Value
@@ -5705,7 +5719,7 @@ def draw_deck_view(game):
         ev = card_ev(game, card_name)
         if ev is not None:
             screen.blit(FONT_TINY.render(f"E(V) = {ev:.2f}", True, BLUE), (rect.x + 58, rect.y + 54))
-        desc_lines = wrapped_text(FONT_TINY, CARD_LIBRARY[card_name]["desc"], rect.width - 24)
+        desc_lines = wrapped_text(FONT_TINY, desc, rect.width - 24)
         for line_index, line in enumerate(render_lines(FONT_TINY, desc_lines[:2], color=MUTED)):
             screen.blit(line, (rect.x + 12, rect.y + 68 + line_index * 15))
 
@@ -5825,7 +5839,7 @@ def draw_push_luck_banner(game, rect):
     ev_color = GREEN if ev > 0 else (RED if ev < 0 else MUTED)
     sign = "positive" if ev > 0 else ("negative" if ev < 0 else "break-even")
     screen.blit(FONT_BODY.render(f"Next Roll E(V): {ev:+.2f} damage ({sign})", True, ev_color), (header_x, rect.y + 72))
-    formula = FONT_TINY.render("E(Next Roll) = (17 - Banked)/6  [1/6 bust: lose bank + 3 recoil; 5/6: +2..+6]", True, MUTED)
+    formula = FONT_TINY.render("Average of six outcomes after roll modifiers. Bust loses the bank plus 3 recoil.", True, MUTED)
     screen.blit(formula, (header_x, rect.y + 98))
 
     btn_w, btn_h = 220, 48
@@ -6001,9 +6015,12 @@ def draw_card_reward(game):
     n = len(game.card_reward_options)
     total_w = n * card_w + max(0, n - 1) * 30
     start_x = (WIDTH - total_w) // 2
+    hover_detail = None
     for idx, card_name in enumerate(game.card_reward_options):
         rect = pygame.Rect(start_x + idx * (card_w + 30), panel.y + 130, card_w, card_h)
         hovered = rect.collidepoint(mpos)
+        if hovered:
+            hover_detail = card_presentation(game.character, card_name)
         render_card(screen, card_name, rect, hovered=hovered, affordable=True, character=game.character, game=game)
         game.button_rects[f"cardreward_{idx}"] = rect
 
@@ -6011,6 +6028,8 @@ def draw_card_reward(game):
     hovered = skip_btn.collidepoint(mpos)
     draw_button(screen, skip_btn, "Skip", DIM, hovered=hovered)
     game.button_rects["skip_card_reward"] = skip_btn
+    if hover_detail:
+        draw_item_tooltip(mpos, *hover_detail)
 
 
 def draw_relic_choice(game):
@@ -6030,7 +6049,7 @@ def draw_relic_choice(game):
         pygame.draw.circle(screen, PANEL_LIGHT, badge_center, 24)
         pygame.draw.circle(screen, color, badge_center, 24, 2)
         blit_icon(screen, ICON_RELIC.get(relic), badge_center, 28)
-        screen.blit(FONT_HEADER.render(relic, True, TEXT), (rect.x + 16, rect.y + 18))
+        screen.blit(_card_title(relic, rect.width - 84), (rect.x + 16, rect.y + 18))
         desc_lines = wrapped_text(FONT_SMALL, RELIC_LIBRARY[relic]["description"], rect.width - 74)
         yy = rect.y + 60
         for line in render_lines(FONT_SMALL, desc_lines):
@@ -6278,6 +6297,18 @@ def draw_shop_backdrop(surface, width=WIDTH, height=HEIGHT):
     surface.blit(mist, (0, height - 70))
 
 
+def draw_item_tooltip(mpos, name, desc):
+    lines = wrapped_text(FONT_SMALL, f"{name}: {desc}", 340)
+    line_h = FONT_SMALL.size("Ag")[1]
+    box = pygame.Rect(mpos[0] + 12, mpos[1] + 12, 360, 16 + line_h * len(lines))
+    box.x = min(box.x, WIDTH - box.width - 8)
+    box.y = min(box.y, HEIGHT - box.height - 8)
+    pygame.draw.rect(screen, PANEL, box, border_radius=8)
+    pygame.draw.rect(screen, GOLD, box, width=1, border_radius=8)
+    for i, line in enumerate(lines):
+        screen.blit(FONT_SMALL.render(line, True, TEXT), (box.x + 10, box.y + 8 + i * line_h))
+
+
 def draw_shop(game):
     panel = draw_center_panel("Strange Math Merchant", None, GOLD, pygame.Rect(110, 60, 1060, 600), background_fn=draw_shop_backdrop)
     draw_gold_badge(screen, panel.centerx - 105, panel.y + 58, game.player['gold'])
@@ -6310,6 +6341,7 @@ def draw_shop(game):
     grid_w = cols * card_w + (cols - 1) * gap_x
     start_x = panel.centerx - grid_w / 2
 
+    hover_detail = None
     for idx, item in enumerate(game.shop_offer):
         col, row = idx % cols, idx // cols
         rect = pygame.Rect(
@@ -6330,6 +6362,14 @@ def draw_shop(game):
         else:
             render_shop_service_card(screen, item, rect, hovered=hovered, affordable=can_afford or bought)
 
+        if hovered:
+            if item["kind"] == "card":
+                hover_detail = card_presentation(game.character, item["name"])
+            elif item["kind"] == "relic":
+                hover_detail = item["name"], RELIC_LIBRARY[item["name"]]["description"]
+            else:
+                hover_detail = item["name"], "Permanently remove one card from your deck."
+
         tag_y = rect.bottom + 4
         if bought:
             tag_surf = FONT_SMALL.render("SOLD", True, MUTED)
@@ -6344,6 +6384,8 @@ def draw_shop(game):
     hovered = leave_btn.collidepoint(mpos)
     draw_button(screen, leave_btn, "Leave Shop", BLUE, hovered=hovered)
     game.button_rects["leave_shop"] = leave_btn
+    if hover_detail:
+        draw_item_tooltip(mpos, *hover_detail)
 
 
 SHOP_REMOVE_COLS = 3
@@ -6374,11 +6416,10 @@ def draw_shop_remove_pick(game):
         pygame.draw.circle(screen, PANEL_LIGHT, badge_center, 16)
         pygame.draw.circle(screen, RED, badge_center, 16, 2)
         blit_icon(screen, CARD_ICON.get(card_name, ICON_CARD_TYPE.get(CARD_LIBRARY[card_name]["type"])), badge_center, 18)
-        name_surf = FONT_HEADER.render(card_name, True, TEXT)
-        if name_surf.get_size()[0] > rect.width - 40:
-            name_surf = FONT_BODY.render(card_name, True, TEXT)
+        display_name, desc = card_presentation(game.character, card_name)
+        name_surf = _card_title(display_name, rect.width - 55)
         screen.blit(name_surf, (rect.x + 12, rect.y + 14))
-        desc_lines = wrapped_text(FONT_TINY, CARD_LIBRARY[card_name]["desc"], rect.width - 24)
+        desc_lines = wrapped_text(FONT_TINY, desc, rect.width - 24)
         dy = rect.y + 46
         for line in render_lines(FONT_TINY, desc_lines[:2], color=MUTED):
             if dy + 14 > rect.bottom - 6:

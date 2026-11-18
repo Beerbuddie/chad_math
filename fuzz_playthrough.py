@@ -110,7 +110,10 @@ def play_one_run(seed, max_steps=4000):
             candidates = sorted(set(g.full_deck_cards()))
             g.remove_card_instance(random.choice(candidates))
 
+        elif state == "victory" and g.quiz_equation:
+            g.submit_quiz_answer(str(g.quiz_answer))
         elif state in ("victory", "gameover"):
+            assert state != "victory" or g.act == 3
             return state, step
 
         else:

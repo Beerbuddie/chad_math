@@ -11,6 +11,7 @@ access to install it), a tiny in-process fake ``pygame`` module is
 installed first so the game's logic can still be exercised end-to-end.
 """
 
+import importlib.util
 import inspect
 import math
 import os
@@ -41,8 +42,11 @@ import polyhedral_spire as game_module  # noqa: E402
 class ImportSafetyTests(unittest.TestCase):
     def test_import_does_not_start_game_loop(self):
         """Importing the module must not open a window or block."""
-        self.assertFalse(game_module._DISPLAY_READY)
-        self.assertIsNone(game_module.screen)
+        spec = importlib.util.spec_from_file_location("fresh_game", game_module.__file__)
+        fresh = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(fresh)
+        self.assertFalse(fresh._DISPLAY_READY)
+        self.assertIsNone(fresh.screen)
 
     def test_game_instance_without_display(self):
         g = game_module.Game()
@@ -219,7 +223,8 @@ class CardLibraryAndQuizTests(unittest.TestCase):
         g.draw_pile = ["Misread Equation"]
         g.discard = []
         g.hand = []
-        g.draw_cards(1)
+        with unittest.mock.patch.object(random, "randint", return_value=2):
+            g.draw_cards(1)
         self.assertEqual(g.player["hp"], 14)
         self.assertNotIn("Misread Equation", g.hand)
 
@@ -1397,10 +1402,10 @@ class MathInspectorTests(unittest.TestCase):
         self.assertAlmostEqual(game_module.card_ev(self.g, "Arcane Dart"), 5.5)
         self.assertAlmostEqual(game_module.card_ev(self.g, "Dice Slash"), 10.5)
         self.assertAlmostEqual(game_module.card_ev(self.g, "Standard Deviation"), 18.0)
-        self.assertAlmostEqual(game_module.card_ev(self.g, "Ultimate Blast"), 15.75)
+        self.assertAlmostEqual(game_module.card_ev(self.g, "Ultimate Blast"), 16.0)
 
     def test_strike_ev_is_character_dependent(self):
-        self.assertAlmostEqual(game_module.card_ev(self.g, "Strike"), 8.0)  # Math Warrior: flat 8
+        self.assertAlmostEqual(game_module.card_ev(self.g, "Strike"), 8.0)  # Math Warrior: mean of 1d3 + 6
         self.g.choose_character("Probability Wizard")
         self.assertAlmostEqual(game_module.card_ev(self.g, "Strike"), 6.0)  # 3d3 -> 3*2.0
 
@@ -1649,10 +1654,9 @@ class RoundTwoBossPhaseTests(unittest.TestCase):
         g = self._combat()
         with unittest.mock.patch.object(random, "randint", side_effect=[5, 6]):
             g.roll_enemy_intent(g.enemy)
-        # Raw 2d8 = 5 + 6 = 11, then the 5% BOSS_DAMAGE_NERF: floor(11*0.95) = 10.
         # "rolls"/"bonus" stay the pre-nerf dice values (only "value" -- the
         # actual damage that will land -- is reduced).
-        self.assertEqual(g.enemy["intent"], {"type": "chain_rule_breath", "value": 10, "rolls": [5, 6], "bonus": 0})
+        self.assertEqual(g.enemy["intent"], {"type": "chain_rule_breath", "value": math.floor(11 * game_module.BOSS_DAMAGE_NERF), "rolls": [5, 6], "bonus": 0})
 
     def test_phase_2_triggers_below_half_hp_and_clears_player_debuffs(self):
         g = self._combat()
@@ -1675,8 +1679,7 @@ class RoundTwoBossPhaseTests(unittest.TestCase):
         g.enemy["dragon_rage_bonus"] = 3
         with unittest.mock.patch.object(random, "randint", side_effect=[1, 1]):
             g.roll_enemy_intent(g.enemy)
-        # Raw 1 + 1 + 3 rage = 5, then floor(5 * 0.95) = 4 from BOSS_DAMAGE_NERF.
-        self.assertEqual(g.enemy["intent"]["value"], 4)
+        self.assertEqual(g.enemy["intent"]["value"], math.floor(5 * game_module.BOSS_DAMAGE_NERF))
 
     def test_chain_rule_breath_deals_damage_on_enemy_turn(self):
         g = self._combat()
@@ -1686,12 +1689,12 @@ class RoundTwoBossPhaseTests(unittest.TestCase):
         self.assertEqual(hp_before - g.player["hp"], 12)
 
     def test_chain_rule_breath_ev_formula(self):
-        # E(V) includes the BOSS_DAMAGE_NERF (5% boss damage reduction)
+        # E(V) includes the BOSS_DAMAGE_NERF
         # applied to the theoretical 2d8 (+rage bonus) average.
         _, value = game_module.enemy_intent_ev({"type": "chain_rule_breath", "value": 11, "bonus": 0})
-        self.assertAlmostEqual(value, 9.0 * game_module.BOSS_DAMAGE_NERF)
+        self.assertAlmostEqual(value, sum(math.floor((a+b)*game_module.BOSS_DAMAGE_NERF) for a in range(1,9) for b in range(1,9)) / 64)
         _, value2 = game_module.enemy_intent_ev({"type": "chain_rule_breath", "value": 14, "bonus": 3})
-        self.assertAlmostEqual(value2, 12.0 * game_module.BOSS_DAMAGE_NERF)
+        self.assertAlmostEqual(value2, sum(math.floor((a+b+3)*game_module.BOSS_DAMAGE_NERF) for a in range(1,9) for b in range(1,9)) / 64)
 
 
 class RoundTwoRestSiteTests(unittest.TestCase):
@@ -1915,7 +1918,7 @@ class RoundFourCardForgeDeltaTests(unittest.TestCase):
     player compare the base and upgraded desc text themselves."""
 
     def test_strike_shows_a_single_damage_delta(self):
-        self.assertEqual(game_module.card_upgrade_deltas("Strike"), [(8, 12, 4)])
+        self.assertEqual(game_module.card_upgrade_deltas("Strike"), [(6, 10, 4)])
 
     def test_weighted_step_shows_both_block_and_draw_deltas(self):
         self.assertEqual(
@@ -2001,7 +2004,7 @@ class RoundFourWeakIntentDisplayTests(unittest.TestCase):
 
 
 class RoundFiveBossDamageNerfTests(unittest.TestCase):
-    """A flat 5% reduction to every damage-dealing intent a boss rolls,
+    """A shared damage multiplier to every damage-dealing intent a boss rolls,
     across every ai archetype a boss can use -- applied in
     roll_enemy_intent() via BOSS_DAMAGE_NERF, and left out of block intents
     and non-boss fights (regular enemies/elites share some of the same ai
@@ -2027,20 +2030,18 @@ class RoundFiveBossDamageNerfTests(unittest.TestCase):
         g.start_combat(enemy, boss=False, elite=elite)
         return g
 
-    def test_boss_attack_intent_is_reduced_by_5_percent(self):
+    def test_boss_attack_intent_applies_multiplier(self):
         g = self._boss_combat("aggressive", attack=20)  # falls to the "else" branch
         with unittest.mock.patch.object(random, "randint", return_value=5):
             g.roll_enemy_intent(g.enemy)
-        # Raw = 20 + 5 = 25, floor(25 * 0.95) = 23.
-        self.assertEqual(g.enemy["intent"]["value"], 23)
+        self.assertEqual(g.enemy["intent"]["value"], math.floor(25 * game_module.BOSS_DAMAGE_NERF))
 
     def test_boss_guard_attack_branch_is_reduced(self):
         g = self._boss_combat("guard", attack=20)
         with unittest.mock.patch.object(random, "random", return_value=0.99), \
              unittest.mock.patch.object(random, "randint", return_value=6):
             g.roll_enemy_intent(g.enemy)  # random.random() >= 0.45 -> attack branch
-        # Raw = 20 + 6 = 26, floor(26 * 0.95) = 24.
-        self.assertEqual(g.enemy["intent"], {"type": "attack", "value": 24})
+        self.assertEqual(g.enemy["intent"], {"type": "attack", "value": math.floor(26 * game_module.BOSS_DAMAGE_NERF)})
 
     def test_boss_guard_block_intent_is_left_untouched(self):
         g = self._boss_combat("guard", attack=20)
@@ -2053,21 +2054,20 @@ class RoundFiveBossDamageNerfTests(unittest.TestCase):
     def test_boss_burst_intent_is_reduced(self):
         g = self._boss_combat("burst", attack=20)
         with unittest.mock.patch.object(random, "random", return_value=0.0):
-            g.roll_enemy_intent(g.enemy)  # random.random() < 0.35 -> burst branch
-        # Raw = 20 + 8 = 28, floor(28 * 0.95) = 26.
-        self.assertEqual(g.enemy["intent"], {"type": "burst", "value": 26})
+            with unittest.mock.patch.object(random, "randint", return_value=2):
+                g.roll_enemy_intent(g.enemy)
+        self.assertEqual(g.enemy["intent"], {"type": "burst", "value": math.floor(28 * game_module.BOSS_DAMAGE_NERF)})
 
     def test_regular_enemy_and_elite_with_shared_ai_names_are_unaffected(self):
         # Each ai branch's attack-path formula differs (guard/aggressive add
-        # a random 1-6/1-5 roll on top of "attack", burst's attack-path
-        # doesn't add anything), so expected values are per-branch rather
+        # a die to the base attack, burst uses attack - 2 + 1d3), so expected values are per-branch rather
         # than one shared formula -- the point under test is just that none
-        # of them get the boss nerf's floor(value * 0.95).
-        expected_raw_value = {"guard": 26, "burst": 20, "aggressive": 26}
+        # of them get the boss nerf's floor(value * BOSS_DAMAGE_NERF).
+        expected_raw_value = {"guard": 26, "burst": 21, "aggressive": 25}
         for ai, expected in expected_raw_value.items():
             g = self._non_boss_combat(ai, attack=20)
             with unittest.mock.patch.object(random, "random", return_value=0.99), \
-                 unittest.mock.patch.object(random, "randint", return_value=6):
+                 unittest.mock.patch.object(random, "randint", side_effect=lambda low, high: high):
                 g.roll_enemy_intent(g.enemy)
             self.assertFalse(g.combat_boss)
             self.assertEqual(g.enemy["intent"]["value"], expected)
@@ -2076,9 +2076,7 @@ class RoundFiveBossDamageNerfTests(unittest.TestCase):
         g = self._boss_combat("derivative_dragon")
         with unittest.mock.patch.object(random, "randint", side_effect=[5, 6]):
             g.roll_enemy_intent(g.enemy)
-        # Raw 2d8 = 11, floor(11 * 0.95) = 10 -- same nerf as every other
-        # boss archetype, even though this one doesn't use enemy["attack"].
-        self.assertEqual(g.enemy["intent"]["value"], 10)
+        self.assertEqual(g.enemy["intent"]["value"], math.floor(11 * game_module.BOSS_DAMAGE_NERF))
 
 
 class RoundSixCharacterSelectContrastTests(unittest.TestCase):
@@ -2108,7 +2106,7 @@ class RoundSixCharacterSelectContrastTests(unittest.TestCase):
 
 
 class RoundSixPisDefenseTests(unittest.TestCase):
-    """Renamed from "Weighted Lens" to "Pi's Defense": 3.14 (repeating)
+    """Renamed from "Weighted Lens" to "Pi's Defense": pi
     block every turn, rounding down to a flat 3, instead of a one-time +1
     at combat start."""
 
@@ -2118,7 +2116,7 @@ class RoundSixPisDefenseTests(unittest.TestCase):
         self.assertEqual(game_module.CHARACTER_OPTIONS["Math Warrior"]["starting_relic"], "Pi's Defense")
         self.assertIn("Pi's Defense", game_module.ICON_RELIC)
 
-    def test_tooltip_mentions_3_14_repeating_and_that_it_rounds_to_3(self):
+    def test_tooltip_approximates_pi_and_rounds_down(self):
         desc = game_module.RELIC_LIBRARY["Pi's Defense"]["description"]
         self.assertIn("3.14", desc)
         self.assertIn("3", desc)
@@ -2824,6 +2822,79 @@ class RoundNineEventBackdropVisibilityTests(unittest.TestCase):
         args, kwargs = spy.call_args
         self.assertEqual(args[1], "THE SHRINE OF EXPECTED VALUE")
         self.assertGreater(kwargs.get("scale", 1.0), 1.0)
+
+
+class CardAuditRegressionTests(unittest.TestCase):
+    @unittest.skipUnless(_HAVE_REAL_PYGAME, "requires pygame pixels")
+    def test_badge_survives_art_at_all_card_sizes(self):
+        game_module.init_display()
+        g = game_module.Game()
+        g.choose_character("Probability Wizard")
+        for width, height in ((78, 90), (150, 172), (190, 260)):
+            with self.subTest(size=(width, height)):
+                pictures = []
+                for color in ((255, 0, 0), (0, 255, 0)):
+                    surface = pygame.Surface((width, height))
+                    def paint_art(surface, name, content, rarity, character):
+                        surface.fill(color, content)
+                    with unittest.mock.patch.object(game_module, "draw_card_art", paint_art):
+                        game_module.render_card(surface, "Reckless Roll", surface.get_rect(),
+                                                character=g.character, game=g)
+                    r = max(12, int(width * 0.115))
+                    area = pygame.Rect(4 + r // 2, 2 + r // 2, r, r)
+                    pictures.append(pygame.image.tobytes(surface.subsurface(area), "RGB"))
+                self.assertEqual(*pictures)
+                self.assertGreater(max(pictures[0][::3]), 150)  # antialiased gold numeral
+
+    def test_draw_card_cannot_draw_itself_during_resolution(self):
+        g = game_module.Game()
+        g.choose_character("Math Warrior")
+        g.start_combat(g.generate_enemy(1))
+        g.hand, g.draw_pile, g.discard = ["Bayesian Update+"], [], []
+        g.play_card("Bayesian Update+")
+        self.assertEqual(g.hand, [])
+        self.assertEqual(g.discard, ["Bayesian Update+"])
+
+    def test_base_damage_previews_match_live_plays(self):
+        # Every die used by these cards divides 120. For additive multi-hit
+        # cards each hit only needs its own uniform marginal distribution.
+        for character in game_module.CHARACTER_OPTIONS:
+            g = game_module.Game()
+            g.choose_character(character)
+            g.start_combat(g.generate_enemy(1))
+            g.player["relics"] = []
+            g.enemy.update(hp=1000000, max_hp=1000000, block=0, odd_resist=0)
+            g._crown_pending = False
+            for name in game_module.CARD_EV:
+                with self.subTest(card=name, character=character):
+                    g.player["energy"] = 3
+                    g.combat_card_bonus = {}
+                    expected = game_module.card_ev(g, name)
+                    before = g.enemy["hp"]
+                    for face in range(120):
+                        def roll(sides, label):
+                            return 1 + face % sides
+
+                        def multi(sides, hits, label):
+                            rolls = [roll(sides, label)] * hits
+                            return rolls, sum(rolls)
+
+                        g.hand = [name]
+                        g.player.update(energy=3, hp=100, block=0)
+                        g.combat_card_bonus = {}
+                        with unittest.mock.patch.object(g, "roll_dice", roll), \
+                             unittest.mock.patch.object(g, "roll_dice_multi", multi):
+                            g.play_card(name)
+                    self.assertAlmostEqual((before - g.enemy["hp"]) / 120, expected)
+
+    def test_upgrade_edges_are_reciprocal_and_preserve_rarity(self):
+        for name, card in game_module.CARD_LIBRARY.items():
+            if "upgrades_to" in card:
+                with self.subTest(card=name):
+                    upgrade = game_module.CARD_LIBRARY[card["upgrades_to"]]
+                    self.assertEqual(upgrade["base"], name)
+                    self.assertEqual(upgrade["rarity"], card["rarity"])
+                    self.assertLessEqual(upgrade["cost"], card["cost"])
 
 
 if __name__ == "__main__":
