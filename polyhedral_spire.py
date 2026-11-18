@@ -522,6 +522,12 @@ BACKGROUND_FILES = {
     "map": "spire_ascent_map.png",
 }
 MONSTER_FILES = {
+    "Axiom Cultist": "axiom_cultist.png",
+    "Spit Fletchling": "spit_fletchling.png",
+    "Spore Colony": "spore_colony.png",
+    "Elite Axiom Nob": "axiom_nob.png",
+    "Elite The Slumbering Axiom": "slumbering_axiom.png",
+    "Elite The Oracle Array": "oracle_array.png",
     "Decimal Demon": "decimal_demon.png",
     "Fractal Fiend": "fractal_fiend.png",
     "Vector Viper": "vector_viper.png",
@@ -1251,6 +1257,34 @@ RELIC_LIBRARY = {
     },
 }
 
+def _rift_compass_combat_start(game):
+    game.rift_capacity += 1
+
+
+RELIC_LIBRARY["Rift Compass"] = {
+    "character": "Probability Wizard", "rarity": "uncommon",
+    "description": "Gain a third slot for Rifts of Power.", "hooks": {"on_combat_start": _rift_compass_combat_start},
+}
+ICON_RELIC["Rift Compass"] = "rift_compass"
+
+TUTORING_SESSIONS = {
+    "Cram Session": ("Gain 1d8 + 3 block.", lambda g: g.gain_block(g.roll_dice(8, "Cram Session") + 3, "Cram Session")),
+    "Pop Quiz": ("Deal 1d12 + 2 damage.", lambda g: g.roll_damage_card(12, "Pop Quiz", bonus=2)),
+    "Study Group": ("Draw 1d3 cards.", lambda g: g.draw_cards(g.roll_dice(3, "Study Group"))),
+    "Office Hours": ("Heal 1d6 + 2 HP.", lambda g: g.heal_player(g.roll_dice(6, "Office Hours") + 2)),
+    "Extra Credit": ("Gain 1d2 energy.", lambda g: g.gain_session_energy(2, "Extra Credit")),
+    "Study Buddy": ("Your next card this combat costs 0.", lambda g: setattr(g, "study_buddy", True)),
+    "Caffeine Spike": ("Gain 1d3 energy.", lambda g: g.gain_session_energy(3, "Caffeine Spike")),
+    "Curved Grade": ("Once this combat, survive lethal damage at 1 HP.", lambda g: setattr(g, "curved_grade", True)),
+}
+SESSION_CAPACITY = 3
+RIFT_KINDS = ("Entropy", "Variance", "Convergence")
+
+
+def inventory_icon(name):
+    return name.lower().replace(" ", "_")
+
+
 RELIC_NAMES = list(RELIC_LIBRARY.keys())
 
 
@@ -1334,6 +1368,11 @@ def any_lethal_save(game):
         fn = RELIC_LIBRARY.get(name, {}).get("hooks", {}).get("on_lethal")
         if fn and fn(game):
             return True
+    if game.state == "combat" and game.curved_grade:
+        game.curved_grade = False
+        game.player["hp"] = 1
+        game.log_text = "Curved Grade saves you at 1 HP!"
+        return True
     return False
 
 
@@ -1655,6 +1694,41 @@ CARD_LIBRARY = {
 # choose_degenerate_bet / walk_away_from_wager). Kept separate from
 # STATUS_CARD_NAMES, which is for good-but-uncommon "drop_only" cards that
 # ARE still fair reward options.
+for rift_kind in RIFT_KINDS:
+    rift_name = "Channel " + rift_kind
+    passive = {"Entropy": "Deal 1d4 + Focus each turn.", "Variance": "Gain 1d4 + Focus block each turn.",
+               "Convergence": "Store 1d4 + Focus each turn. Evoke for stored damage + 1d8 + Focus."}[rift_kind]
+    CARD_LIBRARY[rift_name] = {
+        "character": "Probability Wizard", "type": "skill", "cost": 1, "rarity": "common",
+        "desc": passive + " A full row evokes the oldest Rift.",
+        "effect": lambda game, kind=rift_kind: game.channel_rift(kind),
+    }
+    CARD_ICON[rift_name] = inventory_icon(rift_kind)
+
+CARD_LIBRARY["Evoke Rift"] = {
+    "character": "Probability Wizard", "type": "skill", "cost": 0, "rarity": "common",
+    "desc": "Consume the oldest Rift. Roll 1d8 + Focus for damage or Variance block. Add stored Convergence.",
+    "effect": lambda game: game.evoke_rift(),
+}
+CARD_LIBRARY["Focus Shift"] = {
+    "character": "Probability Wizard", "type": "skill", "cost": 0, "rarity": "uncommon",
+    "desc": "Change Focus by 1d4 minus 2 for this combat. Focus can go negative.",
+    "effect": lambda game: game.shift_focus(),
+}
+CHARACTER_CARD_ART_FILES["Probability Wizard"].update({
+    "Channel Entropy": "channel_entropy", "Channel Variance": "channel_variance",
+    "Channel Convergence": "channel_convergence", "Evoke Rift": "evoke_rift",
+    "Focus Shift": "focus_shift",
+})
+CARD_ICON.update({"Evoke Rift": "convergence", "Focus Shift": "rift_compass"})
+for card_name, display_name in (
+    ("Channel Entropy", "Entropy Rift Riff"), ("Channel Variance", "Variance Rift Chord"),
+    ("Channel Convergence", "Convergence Rift Crescendo"), ("Evoke Rift", "Rift Finale"),
+    ("Focus Shift", "Focus Modulation"),
+):
+    CARD_PRESENTATION["Probability Wizard"][card_name] = (display_name, CARD_LIBRARY[card_name]["desc"])
+CHARACTER_OPTIONS["Probability Wizard"]["deck"].extend(("Channel Entropy", "Channel Convergence", "Evoke Rift"))
+
 CURSE_CARD_NAMES = {"Misread Equation"}
 
 # Cards that can appear as random rewards (upgraded "+" cards are reward-only
@@ -1700,8 +1774,8 @@ CARD_EV = {
     "Dice Burst+": (1 + 12) / 2 + 13,
     "Standard Deviation": 6 * 3,      # Three independent 1d3 + 4 hits
     "Standard Deviation+": 6 * 4,
-    "Integral Strike": lambda game: 6 * (1 + max(0, game.player["energy"] - 2)),
-    "Integral Strike+": lambda game: 9 * (1 + max(0, game.player["energy"] - 2)),
+    "Integral Strike": lambda game: 6 * (1 + max(0, game.player["energy"] - game.card_cost("Integral Strike"))),
+    "Integral Strike+": lambda game: 9 * (1 + max(0, game.player["energy"] - game.card_cost("Integral Strike+"))),
     "Factorial Fury": 5 * 5,          # Five independent 1d3 + 3 hits
     "Factorial Fury+": 7 * 5,
     "Weak Hypothesis": 5.0,           # Weak debuff excluded from damage EV
@@ -1761,7 +1835,7 @@ def card_cost_efficiency(game, card_name):
     net = card_net_ev(game, card_name)
     if net is None:
         return None
-    cost = CARD_LIBRARY.get(card_name, {}).get("cost", 0)
+    cost = game.card_cost(card_name)
     if not cost:
         return None
     return net / cost
@@ -1976,7 +2050,7 @@ def draw_combat_backdrop(game, width=WIDTH, height=HEIGHT):
     theme = COMBAT_ACT_THEMES[act]
 
     bg = ASSET_MANAGER.get_background("combat")
-    if bg is not None:
+    if bg is not None and (not game.enemy or game.enemy["ai"] in ENEMY_PATTERNS):
         screen.blit(bg, (0, 0))
         return
 
@@ -1988,6 +2062,10 @@ def draw_combat_backdrop(game, width=WIDTH, height=HEIGHT):
             art = pygame.transform.smoothscale(art, (width, int(ah * scale)))
             aw, ah = art.get_size()
         screen.blit(art, ((width - aw) // 2, height - ah))
+        return
+
+    if bg is not None:
+        screen.blit(bg, (0, 0))
         return
 
     sky_top, sky_bottom = theme["sky_top"], theme["sky_bottom"]
@@ -2487,7 +2565,7 @@ def _card_math_footer_data(game, card_name):
         return None
     eff = card_cost_efficiency(game, card_name)
     if eff is None:
-        cost = CARD_LIBRARY.get(card_name, {}).get("cost", 0)
+        cost = game.card_cost(card_name)
         eff = (ev / cost) if cost else None
     recoil = card_recoil_ev(game, card_name)
     return (ev, eff, recoil)
@@ -2591,7 +2669,7 @@ def render_card(surface, card_name, rect, hovered=False, selected=False, afforda
     pygame.draw.circle(surface, (16, 14, 20), badge_center, badge_r)
     pygame.draw.circle(surface, GOLD, badge_center, badge_r, max(2, badge_r // 8))
     cost_font = FONT_HEADER if FONT_HEADER.size("0")[1] <= 2 * badge_r - 4 else FONT_SMALL
-    cost_text = cost_font.render(str(card["cost"]), True, GOLD)
+    cost_text = cost_font.render(str(game.card_cost(card_name) if game else card["cost"]), True, GOLD)
     ctr = cost_text.get_rect(center=badge_center)
     surface.blit(cost_text, ctr)
 
@@ -2892,6 +2970,9 @@ def find_node(rows, node_id):
 # ---------------------------------------------------------------------------
 
 ENEMY_TEMPLATES = [
+    ("Axiom Cultist", 28, 0, "cultist"),
+    ("Spit Fletchling", 24, 0, "fletchling"),
+    ("Spore Colony", 28, 0, "colony"),
     # Attack values below carry a flat +2 tightening pass (Professor
     # Jenson's "spam-to-win" note: on the original numbers, ignoring
     # intents and mashing Attack cards cleared Act 1 too easily). HP,
@@ -2919,6 +3000,9 @@ ENEMY_TEMPLATES = [
 ]
 
 ELITE_TEMPLATES = [
+    ("Axiom Nob", 56, 0, "nob"),
+    ("The Slumbering Axiom", 65, 0, "slumber"),
+    ("The Oracle Array", 62, 0, "array"),
     ("Cinder Engine", 55, 13, "burst"),
     ("Chalkboard Titan", 52, 12, "guard"),
     ("Derivative Ogre", 50, 14, "burst"),
@@ -2942,7 +3026,25 @@ BOSS_TEMPLATES = [
 # boss defending, not attacking) and this never applies outside combat_boss
 # fights, so regular enemies/elites sharing the same ai names (guard/burst/
 # aggressive) are unaffected.
-BOSS_DAMAGE_NERF = 0.48
+BOSS_DAMAGE_NERF = 0.45
+
+
+# Move name, intent type, dice count, sides and constant. Strength only
+# modifies attacks. Enemy dice never run player relic or power hooks.
+ENEMY_MOVES = {
+    "Incantation": ("buff", 1, 4, 2), "Dark Strike": ("attack", 1, 6, 0),
+    "Bite": ("attack", 1, 6, 2), "Grow": ("buff", 1, 3, 1),
+    "Spore Strike": ("attack", 1, 6, 2), "Bellow": ("buff", 1, 4, 3),
+    "Skull Bash": ("attack", 1, 8, 6), "Face Slap": ("attack", 1, 6, 4),
+    "Slumber": ("block", 1, 6, 2), "Hex Strike": ("attack", 2, 8, 4),
+    "Bolt": ("debuff", 0, 0, 0), "Beam": ("attack", 3, 6, 2),
+}
+ENEMY_PATTERNS = {
+    "cultist": (("Incantation",), ("Dark Strike",)),
+    "fletchling": ((), ("Bite", "Grow")), "colony": ((), ("Spore Strike",)),
+    "nob": (("Bellow",), ("Skull Bash", "Face Slap")),
+    "slumber": (("Slumber",) * 3, ("Hex Strike",)), "array": ((), ("Bolt", "Beam")),
+}
 
 
 def apply_special_enemy_traits(enemy):
@@ -3037,7 +3139,7 @@ def _wager_degenerate_bet_roll(game):
     the caller (and checked for lethality there)."""
     roll = game.roll_dice(20, "Giga Chad Wager")
     if roll in WAGER_DEGENERATE_WIN_ROLLS:
-        pool = [r for r in RELIC_NAMES if r not in game.player["relics"] and RELIC_LIBRARY[r]["rarity"] == "rare"]
+        pool = [r for r in RELIC_NAMES if RELIC_LIBRARY[r].get("character", game.character) == game.character and r not in game.player["relics"] and RELIC_LIBRARY[r]["rarity"] == "rare"]
         if pool:
             relic = random.choice(pool)
             game.apply_relic(relic)
@@ -3071,6 +3173,10 @@ class Game:
 
     def __init__(self):
         self.state = "title"
+        self.sessions = []
+        self.pending_spores = 0
+        self.last_session_drop = None
+        self.reset_combat_tools()
         self.returned_as_champion = False
         self.character = "Math Warrior"
         self.act = 1
@@ -3165,6 +3271,10 @@ class Game:
         self.log_text = f"{name} enters the Spire."
 
     def reset_run(self):
+        self.sessions = []
+        self.pending_spores = 0
+        self.last_session_drop = None
+        self.reset_combat_tools()
         base = CHARACTER_OPTIONS.get(self.character, CHARACTER_OPTIONS["Math Warrior"])
         self.player = {
             "name": self.character,
@@ -3303,7 +3413,7 @@ class Game:
     # -- relics / powers ------------------------------------------------------
 
     def apply_relic(self, relic_name):
-        if relic_name in self.player["relics"] or relic_name not in RELIC_LIBRARY:
+        if relic_name in self.player["relics"] or relic_name not in RELIC_LIBRARY or RELIC_LIBRARY[relic_name].get("character", self.character) != self.character:
             return False
         self.player["relics"].append(relic_name)
         trigger_hook(self, "on_acquire")
@@ -3598,6 +3708,68 @@ class Game:
 
     # -- combat ------------------------------------------------------------
 
+    def reset_combat_tools(self):
+        self.rifts = []
+        self.rift_capacity = 2
+        self.focus = 0
+        self.study_buddy = False
+        self.curved_grade = False
+
+    def card_cost(self, name):
+        return 0 if self.state == "combat" and self.study_buddy else CARD_LIBRARY[name]["cost"]
+
+    def gain_session_energy(self, sides, label):
+        self.player["energy"] += self.roll_dice(sides, label)
+
+    def use_session(self, index):
+        if self.state != "combat" or self.push_luck_active or not 0 <= index < len(self.sessions):
+            return False
+        name = self.sessions[index]
+        if (name == "Curved Grade" and self.curved_grade) or (name == "Study Buddy" and self.study_buddy):
+            self.log_text = f"{name} is already active."
+            return False
+        self.sessions.pop(index)
+        self.log_text = f"Tutoring Session: {name}."
+        TUTORING_SESSIONS[name][1](self)
+        return True
+
+    def shift_focus(self):
+        self.focus += self.roll_dice(4, "Focus Shift") - 2
+        self.log_text = f"Focus is now {self.focus:+}."
+
+    def channel_rift(self, kind):
+        if self.character != "Probability Wizard" or self.state != "combat":
+            return
+        if len(self.rifts) >= self.rift_capacity:
+            self.evoke_rift()
+        if self.state == "combat":
+            self.rifts.append({"kind": kind, "stored": 0})
+            self.log_text = f"Channeled {kind} Rift."
+
+    def evoke_rift(self):
+        if not self.rifts or self.state != "combat" or self.character != "Probability Wizard":
+            return
+        rift = self.rifts.pop(0)
+        kind = rift["kind"]
+        value = max(0, self.roll_dice(8, f"Evoke {kind}") + self.focus + rift["stored"])
+        if kind == "Variance":
+            self.gain_block(value, "Evoke Variance")
+        else:
+            self.deal_damage(self.enemy, value, f"Evoke {kind}")
+
+    def tick_rifts(self):
+        for rift in list(self.rifts):
+            if self.state != "combat":
+                break
+            kind = rift["kind"]
+            value = max(0, self.roll_dice(4, kind) + self.focus)
+            if kind == "Entropy":
+                self.deal_damage(self.enemy, value, "Entropy Rift")
+            elif kind == "Variance":
+                self.gain_block(value, "Variance Rift")
+            else:
+                rift["stored"] += value
+
     def generate_enemy(self, row_number):
         name, hp, attack, ai = random.choice(ENEMY_TEMPLATES)
         hp += row_number * 4
@@ -3629,12 +3801,14 @@ class Game:
 
     def start_combat(self, enemy, elite=False, boss=False):
         self.player["block"] = 0
+        self.reset_combat_tools()
         self.enemy = enemy
         self.combat_elite = elite
         self.combat_boss = boss
         self.discard.extend(self.hand)
         self.hand = []
-        self.player["statuses"] = {}
+        self.player["statuses"] = {"vulnerable": self.pending_spores + 1} if self.pending_spores else {}
+        self.pending_spores = 0
         self.enemy["statuses"] = {}
         self.player["active_powers"] = []
         self._crown_pending = False
@@ -3656,11 +3830,29 @@ class Game:
         # start_player_turn() call below -- every turn, not just this one.)
         self.start_player_turn(reset_block=False)
 
+    def wake_slumber(self, during_enemy_turn):
+        self.enemy["awake"] = True
+        self.apply_status(self.player, "weak", 3 if during_enemy_turn else 2)
+        if not during_enemy_turn:
+            self.roll_enemy_intent(self.enemy)
+
     def roll_enemy_intent(self, enemy):
         if not enemy:
             return
         ai = enemy["ai"]
-        if ai == "guard":
+        if ai in ENEMY_PATTERNS:
+            opening, cycle = ENEMY_PATTERNS[ai]
+            turn = self.turn_number - 1
+            if ai == "slumber" and enemy.get("awake"):
+                move = "Hex Strike"
+            else:
+                move = opening[turn] if turn < len(opening) else cycle[(turn - len(opening)) % len(cycle)]
+            kind, count, sides, bonus = ENEMY_MOVES[move]
+            value = bonus + sum(self.roll_dice(sides, enemy=True) for _ in range(count))
+            if kind == "attack":
+                value += enemy.get("strength", 0)
+            enemy["intent"] = {"type": kind, "value": value, "move": move, "strength": enemy.get("strength", 0)}
+        elif ai == "guard":
             if random.random() < 0.45:
                 enemy["intent"] = {"type": "block", "value": 6 + self.effective_floor()}
             else:
@@ -3728,6 +3920,9 @@ class Game:
             if target:
                 target["statuses"] = {name: turns - 1 for name, turns in target.get("statuses", {}).items() if turns > 1}
         trigger_hook(self, "on_turn_start")
+        self.tick_rifts()
+        if self.state != "combat":
+            return
         self.draw_cards(5)
         self.roll_enemy_intent(self.enemy)
         self.turn_banner = {"text": f"Turn {self.turn_number}", "timer": 0.8}
@@ -3741,13 +3936,20 @@ class Game:
             self.log_text = "Resolve Gambler's Flurry first: bank your damage or push your luck."
             return
         card = CARD_LIBRARY[card_name]
-        if self.player["energy"] < card["cost"]:
+        cost = self.card_cost(card_name)
+        if self.player["energy"] < cost:
             self.log_text = "Not enough energy."
             return
         if card_name not in self.hand:
             return
 
-        self.player["energy"] -= card["cost"]
+        self.player["energy"] -= cost
+        self.study_buddy = False
+        if self.enemy and self.enemy["ai"] == "nob" and card["type"] == "skill":
+            self.enemy["strength"] = self.enemy.get("strength", 0) + 3
+            if (self.enemy.get("intent") or {}).get("type") == "attack":
+                self.enemy["intent"]["value"] += 3
+                self.enemy["intent"]["strength"] += 3
         self.hand.remove(card_name)
         card["effect"](self)
         if not card.get("exhaust"):
@@ -3770,12 +3972,22 @@ class Game:
     def enemy_turn(self):
         if not self.enemy or self.state != "combat":
             return
-        self.enemy["block"] = 0
+        if self.enemy["ai"] != "slumber" or self.enemy.get("awake"):
+            self.enemy["block"] = 0
         if not self.enemy.get("intent"):
             self.roll_enemy_intent(self.enemy)
         intent = self.enemy["intent"]
 
-        if intent["type"] == "block":
+        move = intent.get("move")
+        if intent["type"] == "buff":
+            self.enemy["strength"] = self.enemy.get("strength", 0) + intent["value"]
+            self.last_enemy_action = f"{move}: +{intent['value']} {'Ritual' if move == 'Incantation' else 'Strength'}."
+        elif move == "Bolt":
+            self.apply_status(self.player, "truncate", 2)
+            self.last_enemy_action = "Bolt truncates your rolls next turn."
+        elif intent["type"] == "block":
+            if move == "Slumber" and self.turn_number == 3:
+                self.wake_slumber(during_enemy_turn=True)
             gained = intent["value"]
             self.enemy["block"] += gained
             self.last_enemy_action = f"{self.enemy['name']} braces and gains {gained} block."
@@ -3817,7 +4029,9 @@ class Game:
         else:
             hit = intent["value"]
             dealt = self.deal_damage(self.player, hit, self.enemy["name"])
-            self.last_enemy_action = f"{self.enemy['name']} attacks for {dealt}."
+            if move == "Skull Bash":
+                self.apply_status(self.player, "vulnerable", 3)
+            self.last_enemy_action = f"{move or self.enemy['name']} hits for {dealt}."
 
         self.log_text = self.last_enemy_action
 
@@ -3881,6 +4095,8 @@ class Game:
                 damage -= absorbed
             if damage > 0:
                 self.enemy["hp"] = max(0, self.enemy["hp"] - damage)
+                if self.enemy["hp"] and self.enemy["ai"] == "slumber" and not self.enemy.get("awake"):
+                    self.wake_slumber(during_enemy_turn=False)
             # Fractal Fiend passive: gains 12 Block the first time it's
             # brought to (or below) half HP by this hit.
             if self.enemy.get("fractal_split_pending") and self.enemy["hp"] <= self.enemy["max_hp"] // 2:
@@ -3951,6 +4167,16 @@ class Game:
         defeated_name = self.enemy["name"]
         was_elite = self.combat_elite
         was_boss = self.combat_boss
+        self.last_session_drop = None
+        if self.enemy["ai"] == "colony":
+            self.pending_spores = 2
+            self.log_text = "Spores! You start the next fight with 2 Vulnerable."
+        if len(self.sessions) < SESSION_CAPACITY and random.random() < (0.45 if was_elite or was_boss else 0.30):
+            session = random.choice(list(TUTORING_SESSIONS))
+            self.sessions.append(session)
+            self.last_session_drop = session
+            self.log_text = f"Found a Tutoring Session: {session}."
+        self.reset_combat_tools()
         self.enemy = None
         self.player["active_powers"] = []
         self.player["statuses"] = {}
@@ -3973,7 +4199,7 @@ class Game:
     # -- rewards -------------------------------------------------------------
 
     def generate_card_reward_options(self, count=3):
-        pool = [name for name in REWARDABLE_CARDS if name not in ULTIMATE_CARD_NAMES]
+        pool = [name for name in REWARDABLE_CARDS if CARD_LIBRARY[name].get("character", self.character) == self.character and name not in ULTIMATE_CARD_NAMES]
         random.shuffle(pool)
         picks = pool[:count]
         if random.random() < 0.45:
@@ -4026,7 +4252,7 @@ class Game:
             answer = None
         if answer == self.quiz_answer:
             self.player["hp"] = self.player["max_hp"]
-            relic_pool = [name for name in RELIC_NAMES if name not in self.player["relics"]]
+            relic_pool = [name for name in RELIC_NAMES if RELIC_LIBRARY[name].get("character", self.character) == self.character and name not in self.player["relics"]]
             relic = random.choice(relic_pool) if relic_pool else "Golden Ratio"
             self.apply_relic(relic)
             self.log_text = f"Correct! The tower reveals {relic}."
@@ -4076,7 +4302,7 @@ class Game:
         self.advance_reward_stage()
 
     def generate_relic_choice_options(self, count=2):
-        pool = [r for r in RELIC_NAMES if r not in self.player["relics"]]
+        pool = [r for r in RELIC_NAMES if RELIC_LIBRARY[r].get("character", self.character) == self.character and r not in self.player["relics"]]
         random.shuffle(pool)
         return pool[:count]
 
@@ -4085,7 +4311,7 @@ class Game:
         self.advance_reward_stage()
 
     def resolve_treasure(self):
-        pool = [r for r in RELIC_NAMES if r not in self.player["relics"]]
+        pool = [r for r in RELIC_NAMES if RELIC_LIBRARY[r].get("character", self.character) == self.character and r not in self.player["relics"]]
         if pool:
             relic = random.choice(pool)
             self.apply_relic(relic)
@@ -4150,9 +4376,9 @@ class Game:
     # -- shop ------------------------------------------------------------------
 
     def generate_shop_offer(self):
-        relic_pool = [r for r in RELIC_NAMES if r not in self.player["relics"]]
+        relic_pool = [r for r in RELIC_NAMES if RELIC_LIBRARY[r].get("character", self.character) == self.character and r not in self.player["relics"]]
         random.shuffle(relic_pool)
-        card_pool = [name for name in REWARDABLE_CARDS if name not in STATUS_CARD_NAMES and name not in ULTIMATE_CARD_NAMES]
+        card_pool = [name for name in REWARDABLE_CARDS if CARD_LIBRARY[name].get("character", self.character) == self.character and name not in STATUS_CARD_NAMES and name not in ULTIMATE_CARD_NAMES]
         random.shuffle(card_pool)
 
         offer = []
@@ -4160,6 +4386,7 @@ class Game:
             offer.append({"kind": "relic", "name": r, "cost": SHOP_PRICE_BY_RARITY.get(RELIC_LIBRARY[r]["rarity"], 70), "bought": False})
         for c in card_pool[:2]:
             offer.append({"kind": "card", "name": c, "cost": SHOP_PRICE_BY_RARITY.get(CARD_LIBRARY[c]["rarity"], 50), "bought": False})
+        offer.append({"kind": "session", "name": random.choice(list(TUTORING_SESSIONS)), "cost": 30, "bought": False})
         offer.append({"kind": "remove", "name": "Remove a Card", "cost": 40, "bought": False})
         return offer
 
@@ -4171,6 +4398,10 @@ class Game:
             return
         if self.player["gold"] < item["cost"]:
             self.log_text = "Not enough gold for that."
+            return
+
+        if item["kind"] == "session" and len(self.sessions) >= SESSION_CAPACITY:
+            self.log_text = "Your Tutoring Session belt is full."
             return
 
         if item["kind"] == "remove":
@@ -4187,6 +4418,9 @@ class Game:
         item["bought"] = True
         if item["kind"] == "relic":
             self.apply_relic(item["name"])
+        elif item["kind"] == "session":
+            self.sessions.append(item["name"])
+            self.log_text = f"Bought {item['name']}."
         elif item["kind"] == "card":
             self.discard.append(item["name"])
             self.log_text = f"Bought {item['name']}."
@@ -5157,6 +5391,36 @@ def draw_power_aura(surface, character, cx, cy, height, progress):
         surface.blit(real_art, (cx - real_art.get_width() // 2, cy - real_art.get_height() // 2))
 
 
+def draw_combat_tools(game, mpos):
+    belt = pygame.Rect(164, 648, 252, 46)
+    pygame.draw.rect(screen, PANEL, belt, border_radius=8)
+    screen.blit(FONT_TINY.render("Tutoring Sessions", True, TEXT), (belt.x + 6, belt.y + 14))
+    detail = None
+    for i in range(SESSION_CAPACITY):
+        rect = pygame.Rect(belt.x + 118 + 42 * i, belt.y + 4, 38, 38)
+        pygame.draw.rect(screen, PANEL_LIGHT, rect, border_radius=5)
+        if i < len(game.sessions):
+            name = game.sessions[i]
+            blit_icon(screen, inventory_icon(name), rect.center, 34)
+            game.button_rects[f"session_{i}"] = rect
+            if rect.collidepoint(mpos):
+                detail = name, TUTORING_SESSIONS[name][0] + " Click to use."
+    if game.character == "Probability Wizard":
+        screen.blit(FONT_SMALL.render(f"Rifts of Power · Focus {game.focus:+}", True, GOLD), (432, 658))
+        for i, rift in enumerate(game.rifts):
+            rect = pygame.Rect(640 + 52 * i, 648, 44, 44)
+            blit_icon(screen, inventory_icon(rift["kind"]), rect.center, 38)
+            if rift["kind"] == "Convergence":
+                screen.blit(FONT_TINY.render(str(rift["stored"]), True, WHITE), (rect.right - 7, rect.bottom - 16))
+            if rect.collidepoint(mpos):
+                detail = rift["kind"] + " Rift", CARD_LIBRARY["Channel " + rift["kind"]]["desc"]
+    if game.study_buddy or game.curved_grade:
+        text = " · ".join(name for name, active in (("Next card free", game.study_buddy), ("Lethal save", game.curved_grade)) if active)
+        screen.blit(FONT_SMALL.render(text, True, GREEN), (816, 660))
+    if detail:
+        draw_item_tooltip(mpos, *detail)
+
+
 def draw_combat(game):
     draw_combat_backdrop(game)
     mpos = pygame.mouse.get_pos()
@@ -5276,10 +5540,19 @@ def draw_combat(game):
                 # Show what will actually land, not the raw pre-Weak
                 # number -- otherwise Weak looks like it does nothing.
                 predicted = weak_adjusted_damage(game, raw_value)
-                intent_label = f"{predicted} dmg (Weak)" if predicted != raw_value else f"{raw_value} dmg"
+                intent_label = f"{predicted} dmg"
+                if enemy.get("statuses", {}).get("weak"):
+                    intent_label += " (Weak)"
+        if intent.get("move"):
+            if itype == "attack":
+                intent_label = f"{intent['move']} · {weak_adjusted_damage(game, intent['value'])} dmg"
+            elif itype == "debuff":
+                intent_label = "Bolt · Truncate"
+            else:
+                intent_label = f"{intent['move']} +{intent['value']}"
         blit_icon(screen, ICON_INTENT.get(itype), (ex + 22, ey + 90), 18)
         screen.blit(FONT_SMALL.render(intent_label, True, color), (ex + 38, ey + 80))
-        draw_status_badges(screen, enemy.get("statuses", {}), ex + 148, ey + 88, radius=13)
+        draw_status_badges(screen, enemy.get("statuses", {}), ex + 238, ey + 88, radius=13)
 
         stage_glow2 = pygame.Surface((enemy_stage.width, enemy_stage.height), pygame.SRCALPHA)
         pygame.draw.ellipse(stage_glow2, (200, 90, 90, 40), pygame.Rect(20, enemy_stage.height - 70, enemy_stage.width - 40, 60))
@@ -5354,7 +5627,7 @@ def draw_combat(game):
             hovered = rect.collidepoint(mpos)
             if hovered:
                 hovered_card, hovered_rect = card_name, rect
-            affordable = game.player["energy"] >= CARD_LIBRARY[card_name]["cost"]
+            affordable = game.player["energy"] >= game.card_cost(card_name)
             render_card(screen, card_name, rect, hovered=hovered, affordable=affordable, character=game.character, game=game)
             game.button_rects[f"card_{idx}"] = rect
 
@@ -5372,7 +5645,7 @@ def draw_combat(game):
         if hovered_card is not None:
             card_data = CARD_LIBRARY[hovered_card]
             display_name, desc = card_presentation(game.character, hovered_card)
-            lines = wrapped_text(FONT_SMALL, f"{display_name} ({card_data['cost']} energy): {desc}", 340)
+            lines = wrapped_text(FONT_SMALL, f"{display_name} ({game.card_cost(hovered_card)} energy): {desc}", 340)
 
             math_lines = []
             ev = card_ev(game, hovered_card)
@@ -5381,8 +5654,8 @@ def draw_combat(game):
                 eff = card_cost_efficiency(game, hovered_card)
                 if eff is not None:
                     math_lines.append(f"Cost Efficiency = {eff:.2f} DMG/E")
-                elif card_data["cost"]:
-                    math_lines.append(f"Cost Efficiency = {ev / card_data['cost']:.2f} DMG/E")
+                elif game.card_cost(hovered_card):
+                    math_lines.append(f"Cost Efficiency = {ev / game.card_cost(hovered_card):.2f} DMG/E")
                 recoil = card_recoil_ev(game, hovered_card)
                 if recoil is not None:
                     math_lines.append(f"Recoil E(V) = {recoil:.2f}")
@@ -5442,6 +5715,9 @@ def draw_combat(game):
     # Draw the relic tooltip last so the character status panels cannot cover it.
     draw_relic_panel(screen, game, relic_strip.x + 14, relic_strip.y + 6, relic_strip.width - 20)
 
+    if not game.push_luck_active:
+        draw_combat_tools(game, mpos)
+
     hint = FONT_TINY.render("[M] Math Inspector", True, DIM)
     screen.blit(hint, (50 + sx, HEIGHT - 26))
     draw_math_inspector(game)
@@ -5453,7 +5729,9 @@ def weak_adjusted_damage(game, raw_value):
     matches what will actually land once Weak is in play, instead of
     showing the pre-Weak raw value and looking like Weak does nothing."""
     if game.enemy is not None and game.enemy.get("statuses", {}).get("weak", 0) > 0:
-        return max(0, math.floor(raw_value * 0.5))
+        raw_value = max(0, math.floor(raw_value * 0.5))
+    if game.player.get("statuses", {}).get("vulnerable", 0):
+        raw_value = math.ceil(raw_value * 1.5)
     return raw_value
 
 
@@ -5475,8 +5753,12 @@ def enemy_intent_ev(intent):
     if intent is None:
         return None
     t = intent["type"]
-    if t == "block":
+    if t in ("block", "buff", "debuff"):
         return None
+    if intent.get("move") in ENEMY_MOVES:
+        _, count, sides, bonus = ENEMY_MOVES[intent["move"]]
+        bonus += intent.get("strength", 0)
+        return (f"{intent['move']}: {count}d{sides} + {bonus}", count * (sides + 1) / 2 + bonus)
     if t == "decimal_shift":
         return ("E(V) = Σ(1..10)/10", 5.5)
     if t == "fractal_recursion":
@@ -5513,6 +5795,7 @@ def draw_math_inspector(game):
     pygame.draw.rect(bg, (12, 14, 22, 235), pygame.Rect(0, 0, panel.width, panel.height), border_radius=14)
     screen.blit(bg, panel.topleft)
     pygame.draw.rect(screen, BLUE, panel, width=2, border_radius=14)
+    blit_icon(screen, "relic_weighted_lens", (panel.right - 24, panel.y + 24), 28)
     title = FONT_HEADER.render("Math Inspector", True, BLUE)
     screen.blit(title, (panel.x + 16, panel.y + 10))
     subtitle = FONT_TINY.render("E(V) = Σ [ outcome_i × P(outcome_i) ]", True, MUTED)
@@ -5545,7 +5828,7 @@ def draw_math_inspector(game):
             # Professor Jenson's rubric (Section 1: cost-adjusted, risk-
             # adjusted value rather than raw gross damage).
             net = card_net_ev(game, card_name)
-            cost = CARD_LIBRARY.get(card_name, {}).get("cost", 0)
+            cost = game.card_cost(card_name)
             eff = card_cost_efficiency(game, card_name)
             name_line = FONT_TINY.render(f"{card_name}:", True, GOLD)
             screen.blit(name_line, (panel.x + 24, y))
@@ -6027,6 +6310,10 @@ def draw_card_reward(game):
         screen.blit(line, (panel.x + 40, y))
         y += 22
 
+    if game.last_session_drop:
+        label = f"Tutoring Session found: {game.last_session_drop} ({len(game.sessions)}/{SESSION_CAPACITY})"
+        screen.blit(FONT_SMALL.render(label, True, GOLD), (panel.x + 40, panel.y + 105))
+
     mpos = pygame.mouse.get_pos()
     card_w, card_h = 190, 260
     n = len(game.card_reward_options)
@@ -6366,7 +6653,8 @@ def draw_shop(game):
             int(card_w), int(card_h),
         )
         bought = item["bought"]
-        can_afford = (not bought) and game.player["gold"] >= item["cost"]
+        full_belt = item["kind"] == "session" and len(game.sessions) >= SESSION_CAPACITY
+        can_afford = (not bought) and not full_belt and game.player["gold"] >= item["cost"]
         hovered = (not bought) and rect.collidepoint(mpos)
 
         # Cards render exactly the way they do in your hand (same frame,
@@ -6374,6 +6662,10 @@ def draw_shop(game):
         # recognizable as the same card you'll later draw and play.
         if item["kind"] == "card":
             render_card(screen, item["name"], rect, hovered=hovered, affordable=can_afford or bought, character=game.character, game=game)
+        elif item["kind"] == "session":
+            body = _shop_item_frame(screen, rect, hovered, can_afford or bought, CARD, BLUE, BLUE,
+                                    inventory_icon(item["name"]), "?")
+            _shop_item_text(screen, body, item["name"], TUTORING_SESSIONS[item["name"]][0])
         elif item["kind"] == "relic":
             render_shop_relic_card(screen, item["name"], rect, hovered=hovered, affordable=can_afford or bought)
         else:
@@ -6382,13 +6674,17 @@ def draw_shop(game):
         if hovered:
             if item["kind"] == "card":
                 hover_detail = card_presentation(game.character, item["name"])
+            elif item["kind"] == "session":
+                hover_detail = item["name"], TUTORING_SESSIONS[item["name"]][0]
             elif item["kind"] == "relic":
                 hover_detail = item["name"], RELIC_LIBRARY[item["name"]]["description"]
             else:
                 hover_detail = item["name"], "Permanently remove one card from your deck."
 
         tag_y = rect.bottom + 4
-        if bought:
+        if full_belt and not bought:
+            tag_surf = FONT_SMALL.render("Belt full", True, MUTED)
+        elif bought:
             tag_surf = FONT_SMALL.render("SOLD", True, MUTED)
         else:
             tag_surf = FONT_SMALL.render(f"{item['cost']} gold", True, GOLD if can_afford else RED)
@@ -6718,6 +7014,11 @@ def handle_click(game, pos):
                 game.push_luck_push_again()
                 return
             return
+        for i in range(len(game.sessions)):
+            btn = game.button_rects.get(f"session_{i}")
+            if btn and btn.collidepoint(pos):
+                game.use_session(i)
+                return
         for idx, card_name in enumerate(game.hand):
             btn = game.button_rects.get(f"card_{idx}")
             if btn and btn.collidepoint(pos):
