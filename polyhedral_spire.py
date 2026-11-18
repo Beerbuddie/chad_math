@@ -4628,7 +4628,7 @@ def draw_title_screen(game):
 
 def draw_how_to_play_button(game):
     """Small corner button, shown on the title screen, that jumps straight
-    into the 4-slide tutorial/lore prologue (see draw_tutorial) without
+    into the player guide (see draw_tutorial) without
     requiring a hero to be chosen first. Mirrors draw_settings_button's
     placement convention (top corner, always visible on the title screen)."""
     btn = pygame.Rect(16, 18, 176, 38)
@@ -4661,56 +4661,122 @@ ENEMY_INTENT_COLOR_DEBUFF = (150, 90, 214)
 
 TUTORIAL_SLIDES = [
     {
-        "title": "The Spire of Calculus",
-        "icon": "boss_number_dragon",
+        "title": 'Your first climb',
+        "icon": 'node_combat',
         "lines": [
-            "Chad Math climbs the Spire to confront the ultimate calculus",
-            "titan atop it: the Derivative Dragon.",
-            "",
-            "Each floor is a branching map. Choose your path between",
-            "Combats, risk-taking Wagering Shrines, Campfires to rest or",
-            "upgrade a card, and -- at the top of every act -- a Floor Boss.",
+            'Start Run, choose a character, then click a lit room on the map.',
+            'Follow connecting paths to the boss at the end of each act.',
+            'Defeat the third boss to win. At 0 HP your run ends.',
+            '',
+            'Math Warrior starts each turn with 3 Block. Probability Wizard',
+            'starts with an extra Energy and can channel Rifts of Power.',
         ],
     },
     {
-        "title": "Turn Structure & Budget",
-        "icon": "energy_bolt",
+        "title": 'Play your first turn',
+        "icon": 'energy_bolt',
         "lines": [
-            "Every turn, you have 3 Energy to spend. Cards cost 0, 1, or 2",
-            "Energy each -- spend it wisely, since unused Energy is lost",
-            "at the end of your turn.",
-            "",
-            "You draw 5 cards at the start of every turn. Any cards left",
-            "in your hand when you end your turn are discarded.",
+            "Look at the enemy's intent first. It tells you its next move.",
+            'If it shows 10 damage and you have 8 Block, a normal hit costs 2 HP.',
+            'Click a defense card to add Block, or an attack to reduce enemy HP.',
+            '',
+            'The gold number on a card is its Energy cost. You can play several',
+            "cards in one turn. Click End Turn when you're ready for the enemy.",
         ],
     },
     {
-        "title": "Reading Enemy Intent",
-        "icon": "event_question",
+        "title": 'Read your hand',
+        "icon": 'card_book',
         "lines": [
-            "Every enemy shows an icon overhead each turn, telling you",
-            "exactly what it's about to do -- plan around it, not around",
-            "guesswork.",
+            'You normally draw five cards each turn. Hover over a card for its full rules.',
+            'Attacks hit the enemy. Skills can block, draw cards or apply effects.',
+            'Powers grant an ongoing effect for the fight. Relics work automatically.',
+            '',
+            'Unused cards go to discard at End Turn. When the draw pile runs out,',
+            'the discard pile is shuffled. Energy refills and old Block clears each turn.',
         ],
-        "legend": [
-            (ENEMY_INTENT_COLOR_ATTACK, "attack_fist", "Red Swords -- Incoming Damage"),
-            (ENEMY_INTENT_COLOR_DEFEND, "skill_shield", "Blue Shield -- Defending / Gaining Armor"),
-            (ENEMY_INTENT_COLOR_DEBUFF, "power_sparkles", "Purple Skull -- Debuff / Special Ability"),
-        ],
-        "footer": "Unblocked damage isn't undone at the next Campfire -- it permanently chips your HP across the whole run.",
     },
     {
-        "title": "Dice & The Math Inspector",
-        "icon": "dice",
+        "title": 'Choose a room',
+        "icon": 'node_treasure',
         "lines": [
-            "Playing a card stages a polyhedral die -- anywhere from a d4",
-            "to a d20 -- and rolls it live to resolve damage or recoil.",
-            "",
-            "Press [ M ] during combat to open the Math Inspector: a live",
-            "overlay showing the theoretical Expected Value,",
-            "E(V) = sum[ outcome_i * P(outcome_i) ], alongside a running",
-            "Law of Large Numbers tracker of every roll you've actually made",
-            "this session.",
+            'Combat earns gold and a card choice. Skip a reward to keep your deck small.',
+            'Elites are tougher fights with an extra relic choice. Treasure gives loot.',
+            'At a shop, spend gold on a card, relic, session or permanent card removal.',
+            '',
+            'At a campfire, heal about 30% of maximum HP or upgrade an eligible card.',
+            'A wagering shrine offers a bet or a way to walk away. After the first two',
+            'bosses, answer the quiz and take your rewards to reach the next act.',
+        ],
+    },
+    {
+        "title": 'Read the numbers',
+        "icon": 'dice',
+        "lines": [
+            '1d6 means roll one six-sided die. 2d6 means roll two and add them.',
+            'Example: 1d6 + 2 deals 3 to 8 damage before modifiers.',
+            'E(V) is the long-run average: 3.5 + 2 = 5.5 in this example.',
+            '',
+            'Damage per Energy compares card efficiency. Recoil can hurt you.',
+            'Press M in combat for the Math Inspector. D opens your deck.',
+        ],
+    },
+    {
+        "title": 'Read status effects',
+        "icon": 'skill_shield',
+        "lines": [
+            'Weak halves outgoing damage. Vulnerable increases incoming damage by 50%.',
+            'Truncate lowers your die results by 1, to a minimum of 1.',
+            'The number beside a status tells you how long it lasts.',
+            '',
+            "Read the move name too. Vector Viper's piercing strike bypasses Block.",
+            'Axiom Nob gains 3 Strength whenever you play a Skill.',
+        ],
+    },
+    {
+        "title": 'Use a Tutoring Session',
+        "icon": 'study_buddy',
+        "lines": [
+            'Tutoring Sessions are single-use supplies. Your belt holds three.',
+            'Hover over an occupied belt slot for its effect. Click it during combat',
+            'to use it immediately. Unused sessions carry into later fights.',
+            '',
+            'With space in your belt, regular wins have a 30% drop chance.',
+            'Elite and boss wins have a 45% chance. Shops sell a session for 30 gold.',
+        ],
+    },
+    {
+        "title": 'Tutoring Sessions: quick reference',
+        "icon": 'cram_session',
+        "lines": [f"{name}: {TUTORING_SESSIONS[name][0]}" for name in ("Cram Session", "Pop Quiz", "Study Group", "Office Hours")],
+    },
+    {
+        "title": 'Tutoring Sessions: timing',
+        "icon": 'curved_grade',
+        "lines": [f"{name}: {TUTORING_SESSIONS[name][0]}" for name in ("Extra Credit", "Caffeine Spike", "Study Buddy", "Curved Grade")],
+    },
+    {
+        "title": 'Wizard: Rifts of Power',
+        "icon": 'convergence',
+        "lines": [
+            'Channel means open a Rift. The Wizard has two slots, or three with Rift Compass.',
+            'At the start of your turn, Entropy rolls 1d4 + Focus for damage.',
+            'Variance rolls the same for Block. Convergence stores that amount instead.',
+            '',
+            'Play Rift Finale to evoke (use up) your oldest Rift. Filling the',
+            'last empty slot is safe. Channel one more and the oldest evokes first.',
+        ],
+    },
+    {
+        "title": 'Wizard: Focus and evoking',
+        "icon": 'rift_compass',
+        "lines": [
+            'Evoking rolls 1d8 + Focus. Entropy deals damage. Variance gives Block.',
+            'Convergence adds its stored charge to the damage. Example: 5 stored,',
+            'a roll of 4 and +1 Focus deal 10 damage before enemy defenses.',
+            '',
+            'Focus Modulation changes Focus by 1d4 minus 2. Focus can be negative.',
+            'Rift output bottoms out at zero. Each new fight starts with no Rifts and zero Focus.',
         ],
     },
 ]
@@ -4775,9 +4841,11 @@ def draw_tutorial(game):
     is_first = slide_index == 0
     is_last = slide_index == len(TUTORIAL_SLIDES) - 1
     draw_button(screen, back_btn, "Back", BLUE, hovered=back_btn.collidepoint(pygame.mouse.get_pos()), disabled=is_first)
-    draw_button(screen, next_btn, "Skip to Spire" if is_last else "Next", GOLD,
+    finish_label = "Back to Title" if game.tutorial_return_state == "title" else "Enter the Spire"
+    draw_button(screen, next_btn, finish_label if is_last else "Next", GOLD,
                 hovered=next_btn.collidepoint(pygame.mouse.get_pos()), icon="combat_swords" if is_last else None)
-    draw_button(screen, skip_btn, "Skip to Spire", MUTED, hovered=skip_btn.collidepoint(pygame.mouse.get_pos()))
+    if not is_last:
+        draw_button(screen, skip_btn, "Skip Guide", MUTED, hovered=skip_btn.collidepoint(pygame.mouse.get_pos()))
 
     if not is_first:
         game.button_rects["tutorial_back"] = back_btn

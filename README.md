@@ -17,6 +17,26 @@ probability and expected value.
 
 ![Chad Math title screen](assets/screenshot_title.png)
 
+## First time playing?
+
+1. Open the Windows game and click **How to Play** on the title screen. Use **Next** and **Back** at your own pace. **Start Run** takes you to character selection.
+2. Choose **Math Warrior** for automatic Block each turn, or **Probability Wizard** to play with Rifts. Click a lit map room. Paths lead to a boss at the end of each of three acts.
+3. In combat, read the enemy's **intent**, then hover over your cards. The gold circle is the Energy cost. Click cards to attack or defend. If a normal enemy hit is 10 and your total Block is 8, you lose 2 HP. Click **End Turn** to let the enemy act.
+4. Next turn, Energy refills, old Block clears, and you normally draw five cards. Unused cards go to discard and cycle back when the draw pile empties. HP carries between fights. Win by beating the third boss before your HP reaches zero.
+
+| Map room | What to do there |
+|---|---|
+| Combat / Elite | Win gold and choose a card, or skip it. Elites also offer a relic. |
+| Treasure | Collect loot. Relics provide automatic bonuses. |
+| Campfire | Heal about 30% of maximum HP or permanently upgrade an eligible card. |
+| Shop | Buy cards, relics or a Tutoring Session, or pay to remove a card. |
+| Wagering shrine | Read the stake and possible payout. You can walk away. |
+| Boss | Clear the act. The first two bosses lead to a math quiz and rewards. |
+
+**Reading the combat fields.** HP is health. Block absorbs ordinary damage. Strength adds attack damage. Weak halves outgoing damage, Vulnerable increases incoming damage by 50%, and Truncate lowers your rolls by 1, down to a minimum of 1. Status counters show duration. A piercing strike bypasses Block.
+
+**Reading a die roll.** A card that deals `1d6 + 2` rolls a six-sided die and adds 2. Its range is 3–8 and its expected value is 5.5 before modifiers. Damage per Energy shows efficiency. Recoil is damage you can take yourself. Press **M** for the Math Inspector or **D** to inspect your deck.
+
 ## Characters
 
 - **Math Warrior** — a calculated brute who relies primarily on blocking
@@ -30,13 +50,25 @@ probability and expected value.
 
 Both characters have three Tutoring Session slots. Click an occupied slot during combat to use it. Regular wins have a 30% drop chance and elite or boss wins have a 45% chance while there is space. The shop offers one session for 30 gold.
 
+Using a session spends that item immediately. Unused items carry between fights. Hover over a belt icon to read its effect before clicking.
+
+| Session | Effect |
+|---|---|
+| Cram Session | Gain 1d8 + 3 Block. |
+| Pop Quiz | Deal 1d12 + 2 damage. |
+| Study Group | Draw 1d3 cards. |
+| Office Hours | Heal 1d6 + 2 HP. |
+| Extra Credit / Caffeine Spike | Gain 1d2 / 1d3 Energy for this turn. |
+| Study Buddy | Play your next card this combat for zero Energy. |
+| Curved Grade | Activate before a lethal hit to survive once at 1 HP this combat. |
+
 The Probability Wizard can channel Entropy for damage, Variance for block, or Convergence to store charge. Rifts tick at the start of the player turn. Play Rift Finale to evoke the oldest Rift. Channeling into a full row evokes it automatically. The Wizard starts each fight with two slots and zero Focus. Rift Compass adds a third slot. Negative Focus reduces Rift output to a minimum of zero.
 
 ## Running the game
 
 ### Windows: easiest option (download and play)
 
-Download the [Windows game](https://github.com/Beerbuddie/chad_math/releases/download/v1.2/ChadMathSpire.exe) and double-click the executable. It includes Python, pygame, the artwork, fonts and soundtrack.
+Download the [Windows game](https://github.com/Beerbuddie/chad_math/releases/download/v1.2.1/ChadMathSpire.exe) and double-click the executable. It includes Python, pygame, the artwork, fonts and soundtrack.
 
 The repository includes a ready-to-run `ChadMathSpire.exe` in its top-level
 folder. Download the repository as a ZIP, extract the entire ZIP, and
@@ -105,7 +137,7 @@ build.
 | `M` | Toggle the Math Inspector during combat (live EV/odds breakdown); opens the deck viewer's audit stats from the rest site |
 | `L` | Toggle the run log |
 | `F11` or `Alt+Enter` | Toggle fullscreen |
-| Digits, `+`, `-`, `Enter`, `Backspace` | Answer the end-of-run equation quiz on the victory screen |
+| Digits, `+`, `-`, `Enter`, `Backspace` | Answer the equation quiz between acts |
 
 ## Music
 
