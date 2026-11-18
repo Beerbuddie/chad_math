@@ -1505,8 +1505,10 @@ class RoundTwoAssetManagerTests(unittest.TestCase):
         # that has since been dropped into assets/monsters/ -- the
         # guarantee under test is the fallback behavior, not the absence
         # of art.
-        empty_dir = tempfile.mkdtemp()
-        with unittest.mock.patch.object(game_module, "MONSTERS_DIR", empty_dir):
+        with tempfile.TemporaryDirectory() as empty_dir, \
+             unittest.mock.patch.object(game_module, "MONSTERS_DIR", empty_dir), \
+             unittest.mock.patch.object(game_module, "ART_DIR", empty_dir), \
+             unittest.mock.patch.dict(game_module._ART_CACHE, clear=True):
             sprite = self.am.get_monster_sprite("Decimal Demon", 150)
         self.assertIsNone(sprite)
 
@@ -2895,6 +2897,172 @@ class CardAuditRegressionTests(unittest.TestCase):
                     self.assertEqual(upgrade["base"], name)
                     self.assertEqual(upgrade["rarity"], card["rarity"])
                     self.assertLessEqual(upgrade["cost"], card["cost"])
+
+
+class TutoringRiftEnemyTests(unittest.TestCase):
+    def fight(self, ai="cultist", character="Probability Wizard"):
+        g = game_module.Game()
+        g.choose_character(character)
+        self.enemy = {"ai": ai, "name": "Examiner", "hp": 200, "max_hp": 200, "block": 0, "attack": 4}
+        g.start_combat(self.enemy)
+        return g
+
+    @unittest.skipUnless(_HAVE_REAL_PYGAME, "requires pygame image and display APIs")
+    def test_v12_art_is_present_in_the_runtime_lookups(self):
+        gm = game_module
+        gm.init_display()
+        for name in ("Axiom Cultist", "Spit Fletchling", "Spore Colony", "Elite Axiom Nob",
+                     "Elite The Slumbering Axiom", "Elite The Oracle Array"):
+            with self.subTest(enemy=name):
+                self.assertIsNotNone(gm.ASSET_MANAGER.get_monster_sprite(name, 190))
+        for name, card in gm.CARD_LIBRARY.items():
+            if card.get("character") == "Probability Wizard":
+                with self.subTest(card=name):
+                    slug = gm.CHARACTER_CARD_ART_FILES["Probability Wizard"][name]
+                    self.assertIsNotNone(gm.ASSET_MANAGER.get_card_art(slug, 80, 100))
+        keys = [gm.inventory_icon(n) for n in (*gm.TUTORING_SESSIONS, *gm.RIFT_KINDS, "Rift Compass")]
+        keys.extend(gm.ICON_RELIC[n] for n in ("Abacus Charm", "Calculator Shield", "Infinite Series"))
+        for key in keys:
+            with self.subTest(icon=key):
+                icon = gm.get_icon(key, 64)
+                self.assertIsNotNone(icon)
+                self.assertEqual(icon.get_at((0, 0)).a, 0)
+                self.assertGreater(pygame.mask.from_surface(icon).count(), 50)
+
+    def test_study_buddy_is_spent_only_by_a_played_card(self):
+        g = self.fight()
+        g.sessions = ["Study Buddy"]
+        g.hand = ["Chaos Bloom"]
+        g.player["energy"] = 0
+        self.assertTrue(g.use_session(0))
+        g.play_card("Strike")
+        self.assertTrue(g.study_buddy)
+        g.play_card("Chaos Bloom")
+        self.assertFalse(g.study_buddy)
+        self.assertEqual(g.player["energy"], 0)
+        self.assertLess(g.enemy["hp"], 200)
+
+    def test_grade_prevents_one_lethal_hit_then_expires(self):
+        g = self.fight()
+        g.sessions = ["Curved Grade"]
+        self.assertTrue(g.use_session(0))
+        g.lose_hp(500, "exam")
+        self.assertEqual((g.player["hp"], g.state), (1, "combat"))
+        g.lose_hp(500, "exam")
+        self.assertEqual(g.state, "gameover")
+
+    def test_shop_capacity_and_combat_only_use(self):
+        g = self.fight()
+        g.state = "shop"
+        g.sessions = ["Pop Quiz"] * 3
+        g.player["gold"] = 100
+        item = {"kind": "session", "name": "Office Hours", "cost": 30, "bought": False}
+        g.shop_offer = [item]
+        self.assertFalse(g.use_session(0))
+        g.buy_shop_item(0)
+        self.assertEqual(g.player["gold"], 100)
+        self.assertFalse(item["bought"])
+        g.sessions.pop()
+        g.buy_shop_item(0)
+        self.assertEqual(g.sessions[-1], "Office Hours")
+        self.assertEqual(g.player["gold"], 70)
+
+    def test_drops_respect_roll_threshold_and_capacity(self):
+        for elite, boss, chance in ((False, False, .30), (True, False, .45), (False, True, .45)):
+            for value, full, expected in ((chance - .001, False, 1), (chance, False, 0), (0, True, 3)):
+                with self.subTest(elite=elite, boss=boss, value=value, full=full):
+                    g = self.fight()
+                    g.combat_elite, g.combat_boss = elite, boss
+                    g.sessions = ["Cram Session"] * (3 if full else 0)
+                    with unittest.mock.patch.object(random, "random", return_value=value):
+                        g.deal_damage(g.enemy, 999, "Test")
+                    self.assertEqual(len(g.sessions), expected)
+
+    def test_signed_focus_charge_and_fifo_evocation(self):
+        g = self.fight()
+        g.channel_rift("Convergence")
+        g.channel_rift("Variance")
+        with unittest.mock.patch.object(g, "roll_dice", return_value=3):
+            g.focus = -4
+            g.tick_rifts()
+            self.assertEqual(g.rifts[0]["stored"], 0)
+            g.focus = 2
+            g.tick_rifts()
+            self.assertEqual(g.rifts[0]["stored"], 5)
+            self.assertEqual(g.player["block"], 5)
+            g.channel_rift("Entropy")
+            self.assertEqual(g.enemy["hp"], 190)
+            self.assertEqual([r["kind"] for r in g.rifts], ["Variance", "Entropy"])
+            g.evoke_rift()
+            self.assertEqual(g.player["block"], 10)
+
+    def test_rift_capacity_character_gate_and_combat_reset(self):
+        g = self.fight()
+        g.apply_relic("Rift Compass")
+        g.start_combat(self.enemy)
+        self.assertEqual(g.rift_capacity, 3)
+        for kind in game_module.RIFT_KINDS:
+            g.channel_rift(kind)
+        g.focus = -3
+        g.start_combat(self.enemy)
+        self.assertEqual((g.rifts, g.focus), ([], 0))
+        g.choose_character("Math Warrior")
+        self.assertFalse(g.apply_relic("Rift Compass"))
+        for _ in range(20):
+            self.assertFalse(set(g.generate_card_reward_options()) & {n for n,c in game_module.CARD_LIBRARY.items() if c.get("character")})
+            self.assertNotIn("Rift Compass", g.generate_relic_choice_options(100))
+
+    def test_ritual_growth_and_enemy_move_cycles(self):
+        for ai, moves in {"cultist": ["Incantation", "Dark Strike", "Dark Strike"],
+                          "fletchling": ["Bite", "Grow", "Bite"],
+                          "nob": ["Bellow", "Skull Bash", "Face Slap"],
+                          "array": ["Bolt", "Beam", "Bolt"]}.items():
+            g = self.fight(ai)
+            with self.subTest(ai=ai), unittest.mock.patch.object(random, "randint", return_value=2):
+                for i, move in enumerate(moves, 1):
+                    g.turn_number = i
+                    g.roll_enemy_intent(g.enemy)
+                    self.assertEqual(g.enemy["intent"]["move"], move)
+                    g.enemy_turn()
+                if ai != "array":
+                    self.assertGreater(g.enemy["strength"], 0)
+                else:
+                    self.assertGreater(g.player["statuses"]["truncate"], 0)
+
+    def test_nob_skill_updates_already_telegraphed_hit(self):
+        g = self.fight("nob")
+        g.end_player_turn()
+        old = g.enemy["intent"]["value"]
+        g.hand = ["Defend"]
+        g.play_card("Defend")
+        self.assertEqual(g.enemy["intent"]["value"], old + 3)
+        g.enemy_turn()
+        self.assertGreater(g.player["statuses"]["vulnerable"], 0)
+
+    def test_sleep_banks_block_and_wakes_on_hp_damage_or_third_sleep(self):
+        for early in (True, False):
+            g = self.fight("slumber")
+            g.end_player_turn()
+            block = g.enemy["block"]
+            g.end_player_turn()
+            self.assertGreater(g.enemy["block"], block)
+            if early:
+                g.deal_damage(g.enemy, g.enemy["block"] + 1, "Wake")
+            else:
+                g.end_player_turn()
+            self.assertTrue(g.enemy["awake"])
+            self.assertEqual(g.enemy["intent"]["move"], "Hex Strike")
+            self.assertEqual(g.player["statuses"]["weak"], 2)
+
+    def test_spores_affect_exactly_two_turns_of_next_fight(self):
+        g = self.fight("colony")
+        g.deal_damage(g.enemy, 999, "Finisher")
+        g.start_combat(g.generate_enemy(1))
+        self.assertEqual(g.player["statuses"]["vulnerable"], 2)
+        self.assertEqual(game_module.weak_adjusted_damage(g, 5), 8)
+        g.start_player_turn()
+        g.start_player_turn()
+        self.assertNotIn("vulnerable", g.player["statuses"])
 
 
 if __name__ == "__main__":

@@ -1,5 +1,11 @@
 # Gameplay and artwork audit
 
+## v1.2 follow-up
+
+Tutoring Sessions and Rifts of Power now ship on the main development line. The findings below document the original v1.1 audit. For v1.2 the unchanged 0.48 boss multiplier yielded 434 victories in 1,000 full three-act runs. With 0.45 the bot won 499 of the same 1,000 runs and used 2,818 Tutoring Sessions. Each run answers both inter-act quizzes. The final math audit covers 96 actions at 500,000 trials apiece, including Rift output with negative Focus.
+
+## v1.1 findings
+
 Reviewed main at `9e52fb6`. The checkout contains 47 card records, 12 relics and two playable characters. Neither published branch contains Tutoring Sessions or Rifts of Power, including Entropy, Variance and Convergence Rift. This review follows the owner's choice to audit current main and flag those systems as missing.
 
 ## Rendering

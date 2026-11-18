@@ -26,11 +26,17 @@ probability and expected value.
   **Abacus Charm** relic, which turns his lower base energy into extra
   energy every single turn.
 
+## Tutoring Sessions and Rifts of Power
+
+Both characters have three Tutoring Session slots. Click an occupied slot during combat to use it. Regular wins have a 30% drop chance and elite or boss wins have a 45% chance while there is space. The shop offers one session for 30 gold.
+
+The Probability Wizard can channel Entropy for damage, Variance for block, or Convergence to store charge. Rifts tick at the start of the player turn. Play Rift Finale to evoke the oldest Rift. Channeling into a full row evokes it automatically. The Wizard starts each fight with two slots and zero Focus. Rift Compass adds a third slot. Negative Focus reduces Rift output to a minimum of zero.
+
 ## Running the game
 
 ### Windows: easiest option (download and play)
 
-Download the [Windows game](https://github.com/Beerbuddie/chad_math/releases/download/v1.1/ChadMathSpire.exe) and double-click the executable. It includes Python, pygame, the artwork, fonts and soundtrack.
+Download the [Windows game](https://github.com/Beerbuddie/chad_math/releases/download/v1.2/ChadMathSpire.exe) and double-click the executable. It includes Python, pygame, the artwork, fonts and soundtrack.
 
 The repository includes a ready-to-run `ChadMathSpire.exe` in its top-level
 folder. Download the repository as a ZIP, extract the entire ZIP, and

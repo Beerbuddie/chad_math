@@ -32,8 +32,15 @@ def smart_combat_step(g):
         else:
             g.push_luck_push_again()
         return
+    for i, name in enumerate(g.sessions):
+        if name == "Office Hours" and g.player["hp"] >= g.player["max_hp"] - 3:
+            continue
+        if name == "Study Buddy" and not g.hand:
+            continue
+        if g.use_session(i):
+            return
     energy = g.player["energy"]
-    playable = [c for c in g.hand if gm.CARD_LIBRARY[c]["cost"] <= energy]
+    playable = [c for c in g.hand if g.card_cost(c) <= energy]
     if not playable:
         g.end_player_turn()
         return

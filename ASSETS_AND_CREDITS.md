@@ -21,7 +21,7 @@ icons are redistributed.
 ## Illustrated artwork (`assets/art/`, `assets/cards/`, `assets/monsters/`,
 `assets/heroes/`, `assets/backgrounds/`, `assets/events/`)
 
-These illustrations (card portraits, enemy/boss art, character portraits,
+The original illustrations (card portraits, enemy/boss art, character portraits,
 backdrops, etc.) were **AI-generated using Google Gemini**, from the
 prompts recorded in `gemini_art_prompts.md`, specifically for this
 project.
@@ -42,6 +42,10 @@ have the same well-established licensing history as fonts/icons do:
   `AssetManager` loaders all fall back to procedurally-drawn shapes when
   a given file is missing, so the game still runs (and still looks
   reasonably intentional) with any subset of `assets/art/` deleted.
+
+## v1.2 artwork
+
+The six new enemy portraits, five Wizard card illustrations, eight Tutoring Session icons, three Rift icons, Rift Compass and replacement relic icons were generated with OpenAI image generation for this game. Inventory artwork uses a transparent 256 × 256 canvas. The new enemy portraits are 800 pixels tall. The v1.2 dungeon backdrop and four alternate monster illustrations were generated for this release. The six flat hero pose files are extracted from the existing character sheets.
 
 ## Music (`assets/audio/music/`)
 

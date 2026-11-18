@@ -387,6 +387,30 @@ def build_actions():
         sigma_sides, 1.0 / sigma_sides, lambda: trial_sigma_asymptote_proc(sigma_sides),
     ))
 
+    # Independent distributions for the v1.2 content. Enemy Strength,
+    # Ritual and stored Rift charge are shown at explicit representative values.
+    for label, count, sides, bonus in (
+        ("Cram Session block", 1, 8, 3), ("Pop Quiz damage", 1, 12, 2),
+        ("Study Group draw", 1, 3, 0), ("Office Hours healing", 1, 6, 2),
+        ("Extra Credit energy", 1, 2, 0), ("Caffeine Spike energy", 1, 3, 0),
+        ("Focus Shift", 1, 4, -2),
+        ("Cultist Incantation", 1, 4, 2), ("Cultist Dark Strike at 4 Ritual", 1, 6, 4),
+        ("Fletchling Bite", 1, 6, 2), ("Fletchling Grow", 1, 3, 1),
+        ("Spore Colony strike", 1, 6, 2), ("Nob Bellow", 1, 4, 3),
+        ("Nob Skull Bash at 5 Strength", 1, 8, 11), ("Nob Face Slap at 8 Strength", 1, 6, 12),
+        ("Slumber block", 1, 6, 2), ("Hex Strike", 2, 8, 4), ("Oracle Beam", 3, 6, 2),
+    ):
+        def sample(count=count, sides=sides, bonus=bonus):
+            return bonus + sum(random.randint(1, sides) for _ in range(count))
+        actions.append((label, sides ** count, count * (sides + 1) / 2 + bonus, sample))
+
+    for kind in ("Entropy", "Variance", "Convergence"):
+        for phase, sides, stored in (("passive", 4, 0), ("evoke", 8, 5 if kind == "Convergence" else 0)):
+            for focus in (-2, 0, 2):
+                offset = focus + stored
+                mean = sum(max(0, face + offset) for face in range(1, sides + 1)) / sides
+                actions.append((f"{kind} {phase}, Focus {focus:+}, stored {stored}", sides, mean,
+                                lambda s=sides, off=offset: max(0, random.randint(1, s) + off)))
     return actions
 
 

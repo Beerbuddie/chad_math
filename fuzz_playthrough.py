@@ -46,7 +46,9 @@ def play_one_run(seed, max_steps=4000):
                 else:
                     g.push_luck_push_again()
                 continue
-            playable = [c for c in g.hand if gm.CARD_LIBRARY[c]["cost"] <= g.player["energy"]]
+            if g.sessions and random.random() < 0.25 and g.use_session(random.randrange(len(g.sessions))):
+                continue
+            playable = [c for c in g.hand if g.card_cost(c) <= g.player["energy"]]
             if playable and random.random() < 0.85:
                 g.play_card(random.choice(playable))
             else:
