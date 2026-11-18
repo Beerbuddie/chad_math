@@ -2,7 +2,7 @@
 #
 # The ONE PyInstaller spec for this project (replaces the older,
 # now-deleted MathMemeSpire.spec left over from before the project was
-# renamed). Build with build_exe.bat, or directly via:
+# renamed). Build with BUILD_EXE_FOR_DEVELOPERS.bat, or directly via:
 #     pyinstaller ChadMathSpire.spec
 #
 # NOTE: `datas` bundles the assets/ folder into the .exe, exactly as

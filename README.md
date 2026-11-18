@@ -15,11 +15,6 @@ odds, cost efficiency — right on the card or in the combat HUD, so the
 game doubles as a (much more fun than usual) way to build intuition for
 probability and expected value.
 
-## Screenshots
-
-*(add a screenshot or two here before sharing the repo — a combat screen
-and the character select screen are good picks)*
-
 ## Characters
 
 - **Math Warrior** — a calculated brute who relies primarily on blocking
@@ -31,11 +26,17 @@ and the character select screen are good picks)*
 
 ## Running the game
 
-### Windows: prebuilt .exe
+### Windows: easiest option (download and play)
 
-If you just want to play, grab `ChadMathSpire.exe` from a build (see
-"Building the .exe" below) or wherever it's been shared with you, and
-double-click it. No Python install required.
+The repository includes a ready-to-run `ChadMathSpire.exe` in its top-level
+folder. Download the repository as a ZIP, extract the entire ZIP, and
+double-click `PLAY_GAME.bat` or `ChadMathSpire.exe`. Do not run either file
+from inside the ZIP preview.
+No Python, Pygame, or PyInstaller installation is required.
+
+Keep the extracted folder together while playing. Windows may show a
+SmartScreen warning because this educational executable is not code-signed;
+choose **More info > Run anyway** only if you trust the download.
 
 This build is **Windows-only**. macOS and Linux players should run the
 game from source instead (see below) — it's cross-platform, since it's
@@ -46,8 +47,8 @@ just Python + pygame.
 Requires **Python 3.9+** (any reasonably recent Python 3 works).
 
 ```bash
-git clone <this-repo-url>
-cd <repo-folder>
+git clone https://github.com/Beerbuddie/chad_math.git
+cd chad_math
 python -m venv venv
 venv\Scripts\activate        # Windows
 source venv/bin/activate     # macOS / Linux
@@ -64,7 +65,7 @@ venv\Scripts\activate
 pip install -r requirements-dev.txt
 ```
 
-Then either double-click **`build_exe.bat`**, or run:
+Then either double-click **`BUILD_EXE_FOR_DEVELOPERS.bat`**, or run:
 
 ```bash
 pyinstaller ChadMathSpire.spec
@@ -73,6 +74,15 @@ pyinstaller ChadMathSpire.spec
 The finished executable lands at `dist\ChadMathSpire.exe`. It bundles the
 `assets/` folder into itself, so it's a single, self-contained file you
 can hand to someone else.
+
+### What to download
+
+For most people, use **Code > Download ZIP**, extract it, and double-click
+`PLAY_GAME.bat` or the root-level `ChadMathSpire.exe`. The repository ZIP
+contains the source, artwork, documentation, and this verified Windows build.
+The `BUILD_FROM_SOURCE.bat` / `BUILD_EXE_FOR_DEVELOPERS.bat` scripts are only for developers
+who want to rebuild the executable; they are not needed to play the included
+build.
 
 ## Controls
 
@@ -116,7 +126,9 @@ _pygame_stub.py             A tiny in-process fake pygame, used only when
 assets/                    Fonts, icons, artwork, audio -- see
                             ASSETS_AND_CREDITS.md for what's licensed how
 ChadMathSpire.spec         PyInstaller build config
-build_exe.bat              One-click Windows .exe builder
+PLAY_GAME.bat               Player launcher (no install or build required)
+BUILD_EXE_FOR_DEVELOPERS.bat
+                            Developer-only Windows .exe builder
 requirements.txt           Runtime dependency (pygame)
 requirements-dev.txt       + pyinstaller / pytest, for building/testing
 ```
