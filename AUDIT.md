@@ -39,7 +39,7 @@ The seeded balance runs used `PYTHONHASHSEED=0`. The 1,000-seed set includes the
 
 All 148 PNGs decoded with pygame. All four bundled font files loaded. A contact-sheet review covered the PNGs, and a separate render review covered compact, hand and reward faces. The weightlifting and guitar card commissions match their character presentations. The hero sheets have opaque scenic backgrounds. Several relic icons, visibly including Abacus Charm, Calculator Shield and Infinite Series, contain opaque gray checkerboard tiles. Replacement transparent source art would avoid damaging the item silhouettes.
 
-The optional combat background `backgrounds/spire_dungeon_bg.png` is missing. The act backdrops provide fallback art. Six optional flat hero poses and the four flat alternatives for Decimal Demon, Fractal Fiend, Vector Viper and Radical Wraith are missing. Their primary sheets or monster PNGs are present. The eight mapped music tracks are placeholders and the music directory contains its README only.
+The optional combat background `backgrounds/spire_dungeon_bg.png` is missing. The act backdrops provide fallback art. Six optional flat hero poses and the four flat alternatives for Decimal Demon, Fractal Fiend, Vector Viper and Radical Wraith are missing. Their primary sheets or monster PNGs are present. The eight per-screen MP3 slots are optional. The v1.1 release adds the continuous “Power Chord Proof” soundtrack.
 
 The following PNGs have no direct runtime asset-name match. The list includes legacy icons, alternate commissions and the title screenshot. These files were retained for review.
 

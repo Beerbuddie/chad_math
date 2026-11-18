@@ -15,10 +15,7 @@ odds, cost efficiency — right on the card or in the combat HUD, so the
 game doubles as a (much more fun than usual) way to build intuition for
 probability and expected value.
 
-## Screenshots
-
-*(add a screenshot or two here before sharing the repo — a combat screen
-and the character select screen are good picks)*
+![Chad Math title screen](assets/screenshot_title.png)
 
 ## Characters
 
@@ -33,9 +30,7 @@ and the character select screen are good picks)*
 
 ### Windows: prebuilt .exe
 
-If you just want to play, grab `ChadMathSpire.exe` from a build (see
-"Building the .exe" below) or wherever it's been shared with you, and
-double-click it. No Python install required.
+Download the [Windows game](https://github.com/Beerbuddie/chad_math/releases/download/v1.1/ChadMathSpire.exe) and double-click the executable. It includes Python, pygame, the artwork, fonts and soundtrack.
 
 This build is **Windows-only**. macOS and Linux players should run the
 game from source instead (see below) — it's cross-platform, since it's
@@ -87,14 +82,9 @@ can hand to someone else.
 | `F11` or `Alt+Enter` | Toggle fullscreen |
 | Digits, `+`, `-`, `Enter`, `Backspace` | Answer the end-of-run equation quiz on the victory screen |
 
-## Music (optional)
+## Music
 
-The game ships and runs silently by design — no music files are
-committed to this repository. Drop your own MP3s into
-`assets/audio/music/` following the exact filenames listed in
-[`assets/audio/music/README.txt`](assets/audio/music/README.txt) and
-they'll start playing automatically; nothing else to configure. Missing
-files are always treated as "no music for this screen," never an error.
+“Power Chord Proof” is an original 20-second retro-rock loop with guitar, synth lead, bass and drums. It plays continuously across screens. Optional screen-specific MP3s can override it using the filenames in `MUSIC_FILES`.
 
 ## Project structure
 

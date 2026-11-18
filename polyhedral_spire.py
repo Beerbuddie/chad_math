@@ -80,16 +80,7 @@ def log_crash(exc):
 ART_DIR = os.path.join(ASSET_DIR, "art")
 
 # -- Music framework --------------------------------------------------------
-# Skeleton for the MP3 music the user is going to add. Drop files into
-# assets/audio/music/ under the exact names in MUSIC_FILES below and they
-# start playing automatically at the matching screen -- nothing else to
-# wire up. Missing files (the expected state until those MP3s are added)
-# are silent, not an error: MusicManager tracks the requested key either
-# way so it doesn't reattempt a load every frame, and a completely missing
-# audio device (no `pygame.mixer`, or init failing) degrades to a permanent
-# no-op the same way. assets/audio/sfx/ is reserved for short one-shot
-# sound effects (hits, dice, card plays) -- no loader for those yet, this
-# pass only wires up looping background music.
+# Optional per-screen MP3s override the continuous bundled rock loop.
 AUDIO_DIR = os.path.join(ASSET_DIR, "audio")
 MUSIC_DIR = os.path.join(AUDIO_DIR, "music")
 SFX_DIR = os.path.join(AUDIO_DIR, "sfx")
@@ -145,6 +136,7 @@ class MusicManager:
 
     def __init__(self):
         self._current_key = None
+        self._current_path = None
         self._init_attempted = False
         self._enabled = False
 
@@ -169,12 +161,14 @@ class MusicManager:
             return
         filename = MUSIC_FILES.get(key)
         path = os.path.join(MUSIC_DIR, filename) if filename else None
-        if not path or not os.path.exists(path):
-            self._stop()
+        if not path or not os.path.isfile(path):
+            path = os.path.join(MUSIC_DIR, "power_chord_proof.wav")
+        if path == self._current_path:
             return
         try:
             pygame.mixer.music.load(path)
             pygame.mixer.music.play(loops=-1, fade_ms=900)
+            self._current_path = path
         except Exception:
             pass
 
@@ -1600,29 +1594,33 @@ CARD_LIBRARY = {
     },
     "Weak Hypothesis": {
         "cost": 1, "type": "attack", "rarity": "uncommon",
-        "desc": "Deal 1d3 + 3 damage. Apply Weak for 2 turns.",
+        "desc": "Deal 1d3 + 3 damage. Weak for 2 turns: enemy deals half damage.",
+        "status_label": "Weak · 2 turns",
         "drop_only": True,
         "upgrades_to": "Weak Hypothesis+",
         "effect": lambda game: (game.roll_damage_card(3, "Weak Hypothesis", bonus=3), game.apply_status(game.enemy, "weak", 2)),
     },
     "Weak Hypothesis+": {
         "cost": 1, "type": "attack", "rarity": "uncommon",
-        "desc": "Deal 1d3 + 6 damage. Apply Weak for 3 turns.",
+        "desc": "Deal 1d3 + 6 damage. Weak for 3 turns: enemy deals half damage.",
         "base": "Weak Hypothesis",
+        "status_label": "Weak · 3 turns",
         "drop_only": True,
         "effect": lambda game: (game.roll_damage_card(3, "Weak Hypothesis+", bonus=6), game.apply_status(game.enemy, "weak", 3)),
     },
     "Confidence Collapse": {
         "cost": 1, "type": "skill", "rarity": "uncommon",
-        "desc": "Apply Vulnerable for 2 turns and draw 1 card.",
+        "desc": "Draw 1 card. Vulnerable for 2 turns: enemy takes 50% more damage.",
+        "status_label": "Vulnerable · 2 turns",
         "drop_only": True,
         "upgrades_to": "Confidence Collapse+",
         "effect": lambda game: (game.apply_status(game.enemy, "vulnerable", 2), game.draw_cards(1)),
     },
     "Confidence Collapse+": {
         "cost": 1, "type": "skill", "rarity": "uncommon",
-        "desc": "Apply Vulnerable for 3 turns and draw 2 cards.",
+        "desc": "Draw 2 cards. Vulnerable for 3 turns: enemy takes 50% more damage.",
         "base": "Confidence Collapse",
+        "status_label": "Vulnerable · 3 turns",
         "drop_only": True,
         "effect": lambda game: (game.apply_status(game.enemy, "vulnerable", 3), game.draw_cards(2)),
     },
@@ -2580,7 +2578,12 @@ def render_card(surface, card_name, rect, hovered=False, selected=False, afforda
         footer_rect = None
         content = body
 
-    draw_card_art(surface, card_name, content, rarity_color, character)
+    art = draw_card_art(surface, card_name, content, rarity_color, character)
+    if "status_label" in card and body.height >= 130:
+        label = _card_title(card["status_label"], art.width - 4)
+        band = label.get_rect(centerx=art.centerx, bottom=art.bottom).inflate(4, 0)
+        pygame.draw.rect(surface, PANEL, band, border_radius=3)
+        surface.blit(label, label.get_rect(center=band.center))
 
     # Cost badge (top-left, overlapping the frame corner like Slay the Spire).
     badge_r = max(12, int(body.width * 0.115))
@@ -2602,8 +2605,15 @@ def render_card(surface, card_name, rect, hovered=False, selected=False, afforda
     nr = name_surface.get_rect(centerx=body.centerx, y=name_y)
     surface.blit(name_surface, nr)
 
+    if "status_label" in card and body.height < 130:
+        label = _card_title(card["status_label"], body.width - 6)
+        surface.blit(label, label.get_rect(centerx=body.centerx, y=nr.bottom))
+
     divider_y = name_y + name_surface.get_size()[1] + 4
-    pygame.draw.line(surface, (255, 255, 255, 40), (body.x + 16, divider_y), (body.right - 16, divider_y), 1)
+    if "status_label" in card and body.height < 130:
+        divider_y = nr.bottom + label.get_height()
+    else:
+        pygame.draw.line(surface, (255, 255, 255, 40), (body.x + 16, divider_y), (body.right - 16, divider_y), 1)
 
     desc_lines = wrapped_text(FONT_TINY, display_desc, body.width - 24)
     y = divider_y + 8
@@ -3061,6 +3071,7 @@ class Game:
 
     def __init__(self):
         self.state = "title"
+        self.returned_as_champion = False
         self.character = "Math Warrior"
         self.act = 1
         self.floor = 1
@@ -4330,7 +4341,7 @@ def draw_title_screen(game):
         draw_button(screen, btn, "Start Run", BLUE, hovered=hovered, icon="combat_swords")
         game.button_rects["start_run"] = btn
 
-        prompt = FONT_SMALL.render("Press Enter / Space or click Start Run", True, MUTED)
+        prompt = FONT_SMALL.render("See if you can beat it again!" if game.returned_as_champion else "Press Enter / Space or click Start Run", True, TEXT)
         screen.blit(prompt, (WIDTH // 2 - prompt.get_width() // 2, HEIGHT - 40))
     else:
         draw_spire_background(screen)
@@ -4362,6 +4373,12 @@ def draw_title_screen(game):
         hovered = btn.collidepoint(pygame.mouse.get_pos())
         draw_button(screen, btn, "Start Run", BLUE, hovered=hovered, icon="combat_swords")
         game.button_rects["start_run"] = btn
+
+    headline = FONT_HEADER.render("You're a real Chad!", True, GOLD)
+    y = HEIGHT - 155 if splash is not None else panel.bottom + 18
+    banner = headline.get_rect(centerx=WIDTH // 2, y=y).inflate(26, 8)
+    pygame.draw.rect(screen, PANEL, banner, border_radius=10)
+    screen.blit(headline, headline.get_rect(center=banner.center))
 
     credit = FONT_TINY.render(
         "Icons: Twemoji by Twitter, Inc — CC-BY 4.0.  Fonts: Cinzel & EB Garamond — SIL OFL.",
@@ -6448,11 +6465,11 @@ def draw_victory(game):
     pygame.draw.rect(dim, (10, 8, 4, 140), pygame.Rect(0, 0, WIDTH, HEIGHT))
     screen.blit(dim, (0, 0))
 
-    title_text = f"Act {game.boss_act} Cleared" if game.quiz_equation and game.quiz_is_act_transition else "Victory!"
+    title_text = f"Act {game.boss_act} Cleared" if game.quiz_equation and game.quiz_is_act_transition else "You're a real Chad!"
     title = FONT_TITLE.render(title_text, True, GOLD)
     screen.blit(title, (WIDTH // 2 - title.get_size()[0] // 2, 150))
     blit_icon(screen, "relic_crown", (WIDTH // 2, 240), 64)
-    sub_text = "Real Chads don't use calculators or paper. Head math or nothing." if game.quiz_equation else "You reached the summit of Chad Math vs. The Forces of the Math Spire."
+    sub_text = "Real Chads don't use calculators or paper. Head math or nothing." if game.quiz_equation else "Three acts. One mathematically proven Chad. See if you can beat it again!"
     sub = FONT_BODY.render(sub_text, True, TEXT)
     screen.blit(sub, (WIDTH // 2 - sub.get_size()[0] // 2, 300))
 
@@ -6495,7 +6512,7 @@ def draw_victory(game):
 
     btn = pygame.Rect(470, 430 if not game.quiz_equation else 570, 340, 70)
     hovered = btn.collidepoint(pygame.mouse.get_pos())
-    draw_button(screen, btn, "Play Again", GOLD, hovered=hovered)
+    draw_button(screen, btn, "Back to Title" if not game.quiz_equation else "Play Again", GOLD, hovered=hovered)
     game.button_rects["restart"] = btn
 
 
@@ -6817,7 +6834,12 @@ def handle_click(game, pos):
             return
         btn = game.button_rects.get("restart")
         if btn and btn.collidepoint(pos):
-            game.reset_run()
+            if game.quiz_equation:
+                game.reset_run()
+            else:
+                game.returned_as_champion = True
+                game.state = "title"
+                game.button_rects.clear()
             return
         return
 
