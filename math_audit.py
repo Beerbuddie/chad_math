@@ -11,7 +11,7 @@ the game, this script:
      against it).
   2. Runs 500,000 EMPIRICAL trials of the same dice math actually used by
      ``polyhedral_spire.py`` (the exact thresholds, dice sizes, bonuses,
-     and -- for the boss -- the 5% BOSS_DAMAGE_NERF floor behaviour, all
+     and -- for the boss -- the BOSS_DAMAGE_NERF floor behaviour, all
      read directly from the source) and takes the sample mean.
   3. Reports the absolute error between the two and a PASS/FAIL Law-of-
      Large-Numbers convergence verdict. The tolerance is adaptive, not a
@@ -74,9 +74,10 @@ def theoretical_coin(a, b):
 
 
 def theoretical_reckless_roll(threshold):
-    """1d10: roll <= threshold backfires (0 enemy damage), else 2x roll."""
+    """1d10: roll <= threshold backfires (0 enemy damage), else 2x roll (3x upgraded)."""
     outcomes = _die_range(10)
-    gross = sum((2 * r if r > threshold else 0) for r in outcomes) / 10
+    multiplier = 3 if threshold == 2 else 2
+    gross = sum((multiplier * r if r > threshold else 0) for r in outcomes) / 10
     recoil = sum((4 if r <= threshold else 0) for r in outcomes) / 10
     return gross, recoil
 
@@ -113,8 +114,7 @@ def theoretical_chain_rule_breath(bonus=0, boss_nerf=True):
     """Derivative Dragon: 2d8 (+ rage bonus once Phase 2 triggers), then --
     for a boss fight -- floor(raw * BOSS_DAMAGE_NERF) is what actually gets
     used as the attack's value (see roll_enemy_intent()). That floor makes
-    the *exact* theoretical mean slightly different from the naive
-    "continuous" raw*nerf approximation the in-game Math Inspector shows,
+    the *exact* theoretical mean slightly different from scaling the raw mean,
     so this enumerates every floored outcome directly rather than assuming
     the continuous formula is exact."""
     total = 0.0
@@ -181,7 +181,7 @@ def trial_reckless_roll(threshold):
     roll = random.randint(1, 10)
     if roll <= threshold:
         return 0.0, 4.0  # (gross enemy damage, recoil self-damage)
-    return float(2 * roll), 0.0
+    return float((3 if threshold == 2 else 2) * roll), 0.0
 
 
 def trial_probability_missile(hits):
@@ -254,8 +254,8 @@ def build_actions():
     actions = []
 
     # -- Player cards --------------------------------------------------------
-    actions.append(("Strike (Math Warrior — Equation Breaker)", 1, 8.0, lambda: 8.0))
-    actions.append(("Strike+ (Math Warrior — Equation Breaker+)", 1, 12.0, lambda: 12.0))
+    actions.append(("Strike (Math Warrior — Equation Breaker)", 3, 8.0, lambda: trial_flat_die(3, 6)))
+    actions.append(("Strike+ (Math Warrior — Equation Breaker+)", 3, 12.0, lambda: trial_flat_die(3, 10)))
     actions.append((
         "Strike (Probability Wizard — Probability Missile, 3d3)", 3 ** 3,
         theoretical_probability_missile(3), lambda: trial_probability_missile(3),
@@ -266,9 +266,7 @@ def build_actions():
     ))
     actions.append(("Arcane Dart (1d6+2)", 6, theoretical_flat_die(6, 2), lambda: trial_flat_die(6, 2)))
     actions.append(("Arcane Dart+ (1d6+5)", 6, theoretical_flat_die(6, 5), lambda: trial_flat_die(6, 5)))
-    # Progressive Overload's baseline EV (no accumulated combat_card_bonus,
-    # matching CARD_EV's static "first play" convention -- see the comment
-    # on CARD_EV["Progressive Overload"] in polyhedral_spire.py).
+    # First play, before accumulating any combat bonus.
     actions.append(("Progressive Overload (1d8+2, baseline)", 8, theoretical_flat_die(8, 2), lambda: trial_flat_die(8, 2)))
     actions.append(("Chaos Bloom (12+1d6)", 6, 12 + theoretical_flat_die(6), lambda: 12 + trial_flat_die(6)))
     actions.append(("Chaos Bloom+ (18+1d6)", 6, 18 + theoretical_flat_die(6), lambda: 18 + trial_flat_die(6)))
@@ -279,7 +277,30 @@ def build_actions():
     actions.append(("Dice Burst (1d12+8)", 12, theoretical_flat_die(12, 8), lambda: trial_flat_die(12, 8)))
     actions.append(("Dice Burst+ (1d12+13)", 12, theoretical_flat_die(12, 13), lambda: trial_flat_die(12, 13)))
     actions.append(("Ultimate Strike (1d20)", 20, theoretical_flat_die(20), lambda: trial_flat_die(20)))
-    actions.append(("Ultimate Blast (1d20 x1.5)", 20, theoretical_flat_die(20, multiplier=1.5), lambda: trial_flat_die(20, multiplier=1.5)))
+    actions.append(("Ultimate Blast (1d20 x1.5)", 20, sum(math.ceil(r * 1.5) for r in _die_range(20)) / 20, lambda: math.ceil(trial_flat_die(20, multiplier=1.5))))
+
+    actions.append(("Misread Equation HP loss", 3, 6, lambda: trial_flat_die(3, 4)))
+    for label, hits, bonus in (
+        ("Standard Deviation", 3, 4), ("Standard Deviation+", 4, 4),
+        ("Factorial Fury", 5, 3), ("Factorial Fury+", 5, 5),
+        ("Weak Hypothesis", 1, 3), ("Weak Hypothesis+", 1, 6),
+    ):
+        def trial(hits=hits, bonus=bonus):
+            return sum(trial_flat_die(3, bonus) for _ in range(hits))
+        actions.append((label, 3 ** hits, hits * (2 + bonus), trial))
+
+    for label, bonus in (("Integral Strike", 4), ("Integral Strike+", 7)):
+        for remaining in (0, 1, 2):
+            factor = remaining + 1
+            actions.append((f"{label}, {remaining} energy after cost", 3, (2 + bonus) * factor,
+                            lambda b=bonus, f=factor: trial_flat_die(3, b) * f))
+
+    for label, sides, bonus in (("Probability Shield", 8, 0), ("Probability Shield+", 8, 3),
+                                ("Guard attack", 6, 20), ("Aggressive attack", 5, 20),
+                                ("Burst attack", 3, 18), ("Burst special", 3, 26)):
+        actions.append((label, sides, theoretical_flat_die(sides, bonus),
+                        lambda s=sides, b=bonus: trial_flat_die(s, b)))
+    actions.append(("Spotter's Axiom block", 6, 7, lambda: 2 * trial_flat_die(6)))
 
     # Reckless Roll(+): each has two rows -- the gross damage EV (what
     # lands on the enemy) and the expected recoil EV (what backfires onto
@@ -322,6 +343,14 @@ def build_actions():
             return trial_flurry_next_roll(bank)
 
         actions.append((f"Gambler's Flurry — Next Roll E(V) at Bank={bank}", 6, expected_next, flurry_trial))
+
+    actions.append(("Flurry next roll, Dice Sigil (no bust)", 6, 22 / 6,
+                    lambda: max(2, random.randint(1, 6))))
+    for label, sides, bonus in (("Guard", 6, 20), ("Aggressive", 5, 20),
+                                ("Burst attack", 3, 18), ("Burst special", 3, 26)):
+        expected = sum(math.floor((r + bonus) * gm.BOSS_DAMAGE_NERF) for r in _die_range(sides)) / sides
+        actions.append((f"Boss {label}, attack 20", sides, expected,
+                        lambda s=sides, b=bonus: math.floor(trial_flat_die(s, b) * gm.BOSS_DAMAGE_NERF)))
 
     # -- Monster attacks (named special moves) -------------------------------
     actions.append(("Decimal Demon — Floating Point Shift (1d10)", 10, theoretical_flat_die(10), lambda: trial_flat_die(10)))

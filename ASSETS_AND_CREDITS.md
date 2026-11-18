@@ -45,10 +45,4 @@ have the same well-established licensing history as fonts/icons do:
 
 ## Music (`assets/audio/music/`)
 
-No music ships with this repository — see `assets/audio/music/README.txt`
-for the exact filenames the game looks for. Until you add your own
-tracks, the game runs silently; this is intentional (`MusicManager`
-treats every missing file as "no music for this screen," not an error).
-Whatever you add there should be licensed for your own use case (a
-personal project can use royalty-free/CC-licensed tracks; commercial use
-has stricter requirements depending on the source).
+“Power Chord Proof” was composed and synthesized for this game. The loop uses synthesized instruments and percussion throughout. The recording is bundled as `power_chord_proof.wav`.
